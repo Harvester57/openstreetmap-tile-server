@@ -54,12 +54,6 @@ jobs:
       name: Checkout
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-    # Install the cosign tool except on PR
-    # https://github.com/sigstore/cosign-installer
-    - 
-      name: Install cosign
-      if: github.event_name != 'pull_request'
-      uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 #v3.9.2
     -
       name: Set up QEMU
       uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
@@ -165,6 +159,13 @@ jobs:
     -
       name: Checkout
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+    # Install the cosign tool except on PR
+    # https://github.com/sigstore/cosign-installer
+    - 
+      name: Install cosign
+      if: github.event_name != 'pull_request'
+      uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 #v3.9.2
 
     -
       name: Set up QEMU
