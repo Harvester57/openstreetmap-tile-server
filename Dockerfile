@@ -83,9 +83,12 @@ RUN apt-get update \
  renderd \
  sudo \
  vim \
+ pipx \
 && apt-get clean autoclean \
 && apt-get autoremove --yes \
 && rm -rf /var/lib/{apt,dpkg,cache,log}/
+
+RUN pipx ensurepath
 
 RUN adduser --disabled-password --gecos "" renderer
 
