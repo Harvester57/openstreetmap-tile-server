@@ -1,4 +1,4 @@
-FROM ubuntu:22.04@sha256:1aa979d85661c488ce030ac292876cf6ed04535d3a237e49f61542d8e5de5ae0 AS compiler-common
+FROM ubuntu:24.04@sha256:7c06e91f61fa88c08cc74f7e1b7c69ae24910d745357e0dfe1d2c0322aaf20f9 AS compiler-common
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
