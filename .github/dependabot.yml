@@ -7,9 +7,7 @@ updates:
     assignees:
     - "Harvester57"
     schedule:
-      interval: "cron"
-      cronjob: "0 7 * * *"
-      timezone: "Europe/Paris"
+      interval: daily
   - package-ecosystem: "github-actions"
     directory: "/"
     commit-message:
@@ -17,9 +15,7 @@ updates:
     assignees:
     - "Harvester57"
     schedule:
-      interval: "cron"
-      cronjob: "0 7 * * *"
-      timezone: "Europe/Paris"
+      interval: daily
     groups:
       actions-dependencies:
         applies-to: version-updates
