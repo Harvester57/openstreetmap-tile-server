@@ -2,5 +2,26 @@ version: 2
 updates:
   - package-ecosystem: docker
     directory: /
+    commit-message:
+      prefix: "docker"
+    assignees:
+    - "Harvester57"
     schedule:
-      interval: daily
+      interval: "cron"
+      cronjob: "0 7 * * *"
+      timezone: "Europe/Paris"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    commit-message:
+      prefix: "actions"
+    assignees:
+    - "Harvester57"
+    schedule:
+      interval: "cron"
+      cronjob: "0 7 * * *"
+      timezone: "Europe/Paris"
+    groups:
+      actions-dependencies:
+        applies-to: version-updates
+        patterns:
+        - "*"
