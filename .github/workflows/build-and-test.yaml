@@ -19,6 +19,9 @@ env:
   IMAGE : ${{ github.repository_owner }}/openstreetmap-tile-server
   TAG   : ${{ github.sha }}
 
+permissions:
+  contents: read
+
 jobs:
 
   build:
@@ -37,24 +40,29 @@ jobs:
       MOUNT     : /data/database/
       PLATFORM  : linux/${{ matrix.arch }}${{ (matrix.variant != '' && format('/{0}', matrix.variant)) || '' }}
     steps:
+    - name: Harden the runner (Audit all outbound calls)
+      uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
+      with:
+        egress-policy: audit
+
     -
       name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
     -
       name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@2b82ce82d56a2a04d2637cd93a637ae1b359c0a7 # v2.2.0
       with:
         platforms: ${{ matrix.arch }}
     -
       name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@885d1462b80bc1c1c7f0b00334ad271f09369c55 # v2.10.0
     -
       name: Environment
       run : |
         echo  IMAGE=$(echo ${{ env.IMAGE }} | tr '[:upper:]' '[:lower:]')  >>$GITHUB_ENV
     -
       name: Docker build
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@1104d471370f9806843c095c1db02b5a90c5f8b6 # v3.3.1
       with:
         pull       : true
         load       : ${{ matrix.mode == 'build-and-test' }}
@@ -91,7 +99,7 @@ jobs:
     -
       name: Upload tiles
       if  : ${{ matrix.mode == 'build-and-test' }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
       with:
         name: tiles
         path: '*.png'
@@ -130,9 +138,14 @@ jobs:
     - build
     if: ${{ github.event_name != 'pull_request' }}
     steps:
+    - name: Harden the runner (Audit all outbound calls)
+      uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
+      with:
+        egress-policy: audit
+
     -
       name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
     -
       name: Environment
       run : |
@@ -141,7 +154,7 @@ jobs:
     -
       name: Docker meta
       id: meta
-      uses: docker/metadata-action@v4
+      uses: docker/metadata-action@818d4b7b91585d195f67373fd9cb0332e31a7175 # v4.6.0
       with:
         images: |
           ${{ env.DOCKERHUB_IMAGE }}
@@ -153,29 +166,29 @@ jobs:
           type=semver,pattern={{major}}
     -
       name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@2b82ce82d56a2a04d2637cd93a637ae1b359c0a7 # v2.2.0
       with:
         platforms: amd64,arm64
     -
       name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@885d1462b80bc1c1c7f0b00334ad271f09369c55 # v2.10.0
     -
       name: Login to DockerHub
-      uses: docker/login-action@v2
+      uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
       if: ${{ env.DOCKERHUB_IMAGE != '' }}
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
     -
       name: Login to GHCR
-      uses: docker/login-action@v2
+      uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
       with:
         registry : ghcr.io
         username : ${{ github.repository_owner }}
         password : ${{ secrets.GITHUB_TOKEN }}
     -
       name: Build and push
-      uses: docker/build-push-action@v3
+      uses: docker/build-push-action@1104d471370f9806843c095c1db02b5a90c5f8b6 # v3.3.1
       with:
         pull       : true
         push       : true
