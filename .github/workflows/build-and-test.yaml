@@ -34,10 +34,14 @@ jobs:
         include:
         - arch    : amd64
           mode    : build-and-test
+          runner  : ubuntu-24.04
         - arch    : arm64
           variant : v8
           mode    : build-only
-    runs-on: ubuntu-latest
+          runner  : ubuntu-24.04-arm 
+    runs-on: ${{matrix.runner}}
+    permissions:
+      contents: read
     env:
       VOLUME    : osm-db
       CONTAINER : osm-www
@@ -79,7 +83,7 @@ jobs:
         cache-from : type=gha,scope=${{ github.workflow }}:${{ env.PLATFORM }}
         cache-to   : type=gha,scope=${{ github.workflow }}:${{ env.PLATFORM }},mode=max
     -
-      name: Import Luxembourg
+      name: Import  bourg
       if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
         docker  volume  create  ${VOLUME}
