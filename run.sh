@@ -135,6 +135,9 @@ if [ "$1" == "import" ]; then
         sudo -u postgres psql -d gis -f /data/style/${NAME_SQL:-indexes.sql}
     fi
 
+    # Load functions for OSM Carto v5.9.0
+    sudo -u postgres psql -d gis -f /data/functions.sql
+
     #Import external data
     chown -R renderer: /home/renderer/src/ /data/style/
     if [ -f /data/style/scripts/get-external-data.py ] && [ -f /data/style/external-data.yml ]; then
@@ -181,14 +184,14 @@ if [ "$1" == "run" ]; then
         echo "export APACHE_ARGUMENTS='-D ALLOW_CORS'" >> /etc/apache2/envvars
     fi
 
-    # Load functions for OSM Carto v5.9.0
-    sudo -u postgres psql -d gis -f /data/functions.sql
-
     # Initialize PostgreSQL and Apache
     createPostgresConfig
     service postgresql start
     service apache2 restart
     setPostgresPassword
+
+    # Load functions for OSM Carto v5.9.0
+    sudo -u postgres psql -d gis -f /data/functions.sql
 
     # Configure renderd threads
     sed -i -E "s/num_threads=[0-9]+/num_threads=${THREADS:-4}/g" /etc/renderd.conf
