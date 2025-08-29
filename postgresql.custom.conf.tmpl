@@ -22,4 +22,8 @@ track_activity_query_size = 16384
 autovacuum_vacuum_scale_factor = 0.05
 autovacuum_analyze_scale_factor = 0.02
 
+# Disable Postgres JIT
+# https://github.com/gravitystorm/openstreetmap-carto/blob/master/INSTALL.md#disable-jit
+jit = off
+
 listen_addresses = '*'
