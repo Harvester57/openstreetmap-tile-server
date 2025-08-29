@@ -38,7 +38,7 @@ jobs:
         - arch    : arm64
           variant : v8
           mode    : build-and-test
-          runner  : ubuntu-24.04-arm 
+          runner  : ubuntu-24.04-arm
     runs-on: ${{matrix.runner}}
     permissions:
       contents: read
@@ -86,15 +86,15 @@ jobs:
       name: Import Luxembourg
       if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
-        docker  volume  create  ${VOLUME}
-        docker  run  --rm  --shm-size=128M  -v ${VOLUME}:${MOUNT}  -e UPDATES=enabled  ${IMAGE}:${TAG}  import
+        docker volume create ${VOLUME}
+        docker run --rm --shm-size=4GB -v ${VOLUME}:${MOUNT} -e UPDATES=enabled ${IMAGE}:${TAG} import
     -
       name: Start server
       if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
-        docker  run  --shm-size=128M  -v ${VOLUME}:${MOUNT}  -e UPDATES=enabled  -p 80:80  -d  --name ${CONTAINER}  ${IMAGE}:${TAG}  run
+        docker run --shm-size=4GB -v ${VOLUME}:${MOUNT} -e UPDATES=enabled -p 80:80 -d --name ${CONTAINER} ${IMAGE}:${TAG} run
         sleep 30
-        docker  logs  ${CONTAINER}
+        docker logs ${CONTAINER}
     -
       name: Download tiles
       if  : ${{ matrix.mode == 'build-and-test' }}
@@ -106,13 +106,6 @@ jobs:
         curl  http://localhost/tile/1/1/1.png            --fail  -o 111.png
         curl  http://localhost/tile/18/138474/85459.png  --fail  -o empty.png
         curl  http://localhost/tile/18/135536/89345.png  --fail  -o example.png
-    -
-      name: Upload tiles
-      if  : ${{ matrix.mode == 'build-and-test' }}
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-      with:
-        name: tiles
-        path: '*.png'
     -
       name: Verify tiles
       if  : ${{ matrix.mode == 'build-and-test' }}
@@ -138,9 +131,9 @@ jobs:
       name: Cleanup
       if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
-        docker  rm  --force  --volumes  ${CONTAINER}
-        docker  volume  rm  --force  ${VOLUME}
-        docker  rmi  --force  ${IMAGE}:${TAG}
+        docker rm --force --volumes ${CONTAINER}
+        docker volume rm --force ${VOLUME}
+        docker rmi --force ${IMAGE}:${TAG}
 
   deploy:
     runs-on: ubuntu-latest
@@ -262,6 +255,7 @@ jobs:
           push: false
           load: true
           tags: localbuild/testimage:latest
+          platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
       -
