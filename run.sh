@@ -104,6 +104,14 @@ if [ "$1" == "import" ]; then
       ${OSM2PGSQL_EXTRA_ARGS:-}  \
     ;
 
+    # clean up downloaded files
+    if [ -n "${DOWNLOAD_PBF:-}" ] && [ -f /data/region.osm.pbf ]; then
+        rm /data/region.osm.pbf
+    fi
+    if [ -n "${DOWNLOAD_POLY:-}" ] && [ -f /data/region.poly ]; then
+        rm /data/region.poly
+    fi
+
     # old flat-nodes dir
     if [ -f /nodes/flat_nodes.bin ] && ! [ -f /data/database/flat_nodes.bin ]; then
         mv /nodes/flat_nodes.bin /data/database/flat_nodes.bin
