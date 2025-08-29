@@ -182,7 +182,7 @@ if [ "$1" == "run" ]; then
     fi
 
     # Load functions for OSM Carto v5.9.0
-    sudo -u renderer psql -d gis -f /data/functions.sql
+    sudo -u postgres psql -d gis -f /data/functions.sql
 
     # Initialize PostgreSQL and Apache
     createPostgresConfig
