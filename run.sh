@@ -136,7 +136,7 @@ if [ "$1" == "import" ]; then
     fi
 
     # Load functions for OSM Carto v5.9.0
-    sudo -u postgres psql -d gis -f /data/functions.sql
+    sudo -u postgres psql -d gis -f /data/style/functions.sql
 
     #Import external data
     chown -R renderer: /home/renderer/src/ /data/style/
@@ -191,7 +191,7 @@ if [ "$1" == "run" ]; then
     setPostgresPassword
 
     # Load functions for OSM Carto v5.9.0
-    sudo -u postgres psql -d gis -f /data/functions.sql
+    sudo -u postgres psql -d gis -f /data/style/functions.sql
 
     # Configure renderd threads
     sed -i -E "s/num_threads=[0-9]+/num_threads=${THREADS:-4}/g" /etc/renderd.conf
