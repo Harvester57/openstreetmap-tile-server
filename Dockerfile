@@ -10,7 +10,7 @@ RUN apt-get update \
  wget curl \
  git-core unzip unrar postgresql-common \
 && locale-gen $LANG && update-locale LANG=$LANG \
-&& /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh \
+&& /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i \
 && apt-get update && apt-get -y upgrade\
 && apt-get clean \
 && rm -rf /var/lib/apt/lists/*
