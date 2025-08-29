@@ -3,6 +3,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update \
 && apt-get install -y --no-install-recommends \
  ca-certificates gnupg lsb-release locales \
@@ -11,15 +12,19 @@ RUN apt-get update \
 && locale-gen $LANG && update-locale LANG=$LANG \
 && sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' \
 && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
-&& apt-get update && apt-get -y upgrade
+&& apt-get update && apt-get -y upgrade\
+&& apt-get clean \
+&& rm -rf /var/lib/apt/lists/*
 
 ###########################################################################################################
 
 FROM compiler-common AS compiler-stylesheet
-RUN cd ~ \
-&& git clone --single-branch --branch v5.4.0 https://github.com/gravitystorm/openstreetmap-carto.git --depth 1 \
-&& cd openstreetmap-carto \
-&& sed -i 's/, "unifont Medium", "Unifont Upper Medium"//g' style/fonts.mss \
+
+WORKDIR $HOME
+RUN git clone --single-branch --branch v5.4.0 https://github.com/gravitystorm/openstreetmap-carto.git --depth 1
+
+WORKDIR $HOME/openstreemap-carto
+RUN sed -i 's/, "unifont Medium", "Unifont Upper Medium"//g' style/fonts.mss \
 && sed -i 's/"Noto Sans Tibetan Regular",//g' style/fonts.mss \
 && sed -i 's/"Noto Sans Tibetan Bold",//g' style/fonts.mss \
 && sed -i 's/Noto Sans Syriac Eastern Regular/Noto Sans Syriac Regular/g' style/fonts.mss \
@@ -28,12 +33,13 @@ RUN cd ~ \
 ###########################################################################################################
 
 FROM compiler-common AS compiler-helper-script
-RUN mkdir -p /home/renderer/src \
-&& cd /home/renderer/src \
-&& git clone https://github.com/zverik/regional \
-&& cd regional \
-&& rm -rf .git \
-&& chmod u+x /home/renderer/src/regional/trim_osc.py
+
+WORKDIR /home/renderer/src
+RUN git clone https://github.com/zverik/regional
+
+WORKDIR /home/renderer/src/regional
+RUN rm -rf .git \
+&& chmod u+x trim_osc.py
 
 ###########################################################################################################
 
@@ -48,7 +54,7 @@ ENV REPLICATION_URL=https://planet.openstreetmap.org/replication/hour/
 ENV MAX_INTERVAL_SECONDS=3600
 ENV PG_VERSION 15
 
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone
 
 # Get packages
 RUN apt-get update \
@@ -117,8 +123,8 @@ RUN ln -sf /dev/stdout /var/log/apache2/access.log \
 
 # leaflet
 COPY leaflet-demo.html /var/www/html/index.html
-RUN cd /var/www/html/ \
-&& wget https://github.com/Leaflet/Leaflet/releases/download/v1.8.0/leaflet.zip \
+WORKDIR /var/www/html/
+RUN wget https://github.com/Leaflet/Leaflet/releases/download/v1.8.0/leaflet.zip \
 && unzip leaflet.zip \
 && rm leaflet.zip
 
