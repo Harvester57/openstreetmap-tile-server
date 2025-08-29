@@ -102,8 +102,10 @@ RUN wget https://github.com/stamen/terrain-classic/blob/master/fonts/unifont-Med
 # Install python libraries
 RUN pip3 install --break-system-packages \
  requests \
- osmium \
- pyyaml
+ psycopg2 \
+ pyyaml \
+ colormath \
+ numpy
 
 # Install carto for stylesheet
 RUN npm install -g carto@1.2.0
