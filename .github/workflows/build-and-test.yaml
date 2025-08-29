@@ -79,7 +79,7 @@ jobs:
         platforms  : ${{ env.PLATFORM }}
         context    : .
         file       : ./Dockerfile
-        tags       : ${{ env.IMAGE }}:${{ env.TAG }}
+        tags       : ${{ env.IMAGE }}:testbuild-${{ env.PLATFORM }}
         cache-from : type=gha,scope=${{ github.workflow }}:${{ env.PLATFORM }}
         cache-to   : type=gha,scope=${{ github.workflow }}:${{ env.PLATFORM }},mode=max
     -
