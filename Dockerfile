@@ -40,7 +40,7 @@ RUN rm -rf .git \
 
 ###########################################################################################################
 
-FROM compiler-common AS final
+FROM compiler-common
 
 # Based on
 # https://switch2osm.org/serving-tiles/manually-building-a-tile-server-18-04-lts/
