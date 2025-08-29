@@ -52,13 +52,19 @@ if [ "$1" == "import" ]; then
     # Initialize PostgreSQL
     createPostgresConfig
     service postgresql start
-    sudo -u postgres createuser renderer
-    sudo -u postgres createdb -E UTF8 -O renderer gis
-    sudo -u postgres psql -d gis -c "CREATE EXTENSION postgis;"
-    sudo -u postgres psql -d gis -c "CREATE EXTENSION hstore;"
-    sudo -u postgres psql -d gis -c "ALTER TABLE geometry_columns OWNER TO renderer;"
-    sudo -u postgres psql -d gis -c "ALTER TABLE spatial_ref_sys OWNER TO renderer;"
-    setPostgresPassword
+    INITIALIZE="$( sudo -u postgres psql -XtAc "SELECT 1 FROM pg_database WHERE datname='gis'" )"
+    if [ $INITIALIZE = '1' ]
+    then
+        echo "Skipping postgres initialization."
+    else
+        sudo -u postgres createuser renderer
+        sudo -u postgres createdb -E UTF8 -O renderer gis
+        sudo -u postgres psql -d gis -c "CREATE EXTENSION postgis;"
+        sudo -u postgres psql -d gis -c "CREATE EXTENSION hstore;"
+        sudo -u postgres psql -d gis -c "ALTER TABLE geometry_columns OWNER TO renderer;"
+        sudo -u postgres psql -d gis -c "ALTER TABLE spatial_ref_sys OWNER TO renderer;"
+        setPostgresPassword
+    fi 
 
     # Download Luxembourg as sample if no data is provided
     if [ ! -f /data/region.osm.pbf ] && [ -z "${DOWNLOAD_PBF:-}" ]; then
@@ -96,7 +102,13 @@ if [ "$1" == "import" ]; then
     fi
 
     # Import data
-    sudo -u renderer osm2pgsql -d gis --create --slim -G --hstore  \
+    if [ $INITIALIZE = "1" ]
+    then
+        echo "Postgres already initialized, appending new data... This is slow, have patience!"
+    fi
+
+    sudo -u renderer osm2pgsql -d gis --slim -G --hstore \
+      $( (( INITIALIZE == "1" )) && echo '--append' || echo '--create' ) \
       --tag-transform-script /data/style/${NAME_LUA:-openstreetmap-carto.lua}  \
       --number-processes ${THREADS:-4}  \
       -S /data/style/${NAME_STYLE:-openstreetmap-carto.style}  \
