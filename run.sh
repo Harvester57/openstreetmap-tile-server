@@ -181,6 +181,9 @@ if [ "$1" == "run" ]; then
         echo "export APACHE_ARGUMENTS='-D ALLOW_CORS'" >> /etc/apache2/envvars
     fi
 
+    # Load functions for OSM Carto v5.9.0
+    sudo -u renderer psql -d gis -f /data/functions.sql
+
     # Initialize PostgreSQL and Apache
     createPostgresConfig
     service postgresql start
