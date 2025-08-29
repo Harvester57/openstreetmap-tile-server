@@ -87,12 +87,12 @@ jobs:
       if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
         docker volume create ${VOLUME}
-        docker run --rm --shm-size=4GB -v ${VOLUME}:${MOUNT} -e UPDATES=enabled ${IMAGE}:${TAG} import
+        docker run --rm --shm-size=4GB -v ${VOLUME}:${MOUNT} -e UPDATES=enabled ${{ env.IMAGE }}:testbuild-${{ matrix.arch }} import
     -
       name: Start server
       if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
-        docker run --shm-size=4GB -v ${VOLUME}:${MOUNT} -e UPDATES=enabled -p 80:80 -d --name ${CONTAINER} ${IMAGE}:${TAG} run
+        docker run --shm-size=4GB -v ${VOLUME}:${MOUNT} -e UPDATES=enabled -p 80:80 -d --name ${CONTAINER} ${{ env.IMAGE }}:testbuild-${{ matrix.arch }} run
         sleep 30
         docker logs ${CONTAINER}
     -
@@ -133,7 +133,7 @@ jobs:
       run : |
         docker rm --force --volumes ${CONTAINER}
         docker volume rm --force ${VOLUME}
-        docker rmi --force ${IMAGE}:${TAG}
+        docker rmi --force ${{ env.IMAGE }}:testbuild-${{ matrix.arch }}
 
   deploy:
     runs-on: ubuntu-latest
