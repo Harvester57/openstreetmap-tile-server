@@ -24,11 +24,7 @@ WORKDIR /root
 RUN git clone --single-branch --branch v5.9.0 https://github.com/gravitystorm/openstreetmap-carto.git --depth 1
 
 WORKDIR /root/openstreetmap-carto
-RUN sed -i 's/, "unifont Medium", "Unifont Upper Medium"//g' style/fonts.mss \
-&& sed -i 's/"Noto Sans Tibetan Regular",//g' style/fonts.mss \
-&& sed -i 's/"Noto Sans Tibetan Bold",//g' style/fonts.mss \
-&& sed -i 's/Noto Sans Syriac Eastern Regular/Noto Sans Syriac Regular/g' style/fonts.mss \
-&& rm -rf .git
+RUN rm -rf .git
 
 ###########################################################################################################
 
@@ -49,7 +45,7 @@ FROM compiler-common AS final
 # https://switch2osm.org/serving-tiles/manually-building-a-tile-server-18-04-lts/
 ENV DEBIAN_FRONTEND=noninteractive
 ENV AUTOVACUUM=on
-ENV UPDATES=disabled
+ENV UPDATES=enabled
 ENV REPLICATION_URL=https://planet.openstreetmap.org/replication/hour/
 ENV MAX_INTERVAL_SECONDS=3600
 ENV PG_VERSION 19
@@ -124,8 +120,10 @@ RUN ln -sf /dev/stdout /var/log/apache2/access.log \
 # leaflet
 COPY leaflet-demo.html /var/www/html/index.html
 WORKDIR /var/www/html/
-RUN wget https://github.com/Leaflet/Leaflet/releases/download/v1.8.0/leaflet.zip \
+RUN wget https://github.com/Leaflet/Leaflet/releases/download/v1.9.4/leaflet.zip \
 && unzip leaflet.zip \
+&& mv dist/* . \
+&& rmdir dist \
 && rm leaflet.zip
 
 # Icon
