@@ -37,7 +37,7 @@ jobs:
           runner  : ubuntu-24.04
         - arch    : arm64
           variant : v8
-          mode    : build-only
+          mode    : build-and-test
           runner  : ubuntu-24.04-arm 
     runs-on: ${{matrix.runner}}
     permissions:
