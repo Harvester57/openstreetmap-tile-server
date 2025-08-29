@@ -20,10 +20,12 @@ RUN apt-get update \
 FROM compiler-common AS compiler-stylesheet
 
 WORKDIR /root
-RUN git clone --single-branch --branch v5.9.0 https://github.com/gravitystorm/openstreetmap-carto.git --depth 1
+RUN git clone https://github.com/gravitystorm/openstreetmap-carto.git
 
 WORKDIR /root/openstreetmap-carto
-RUN rm -rf .git
+RUN git pull --all && \
+git switch --detach v5.9.0 && \
+rm -rf .git
 
 ###########################################################################################################
 
