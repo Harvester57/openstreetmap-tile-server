@@ -3,9 +3,9 @@
 set -euo pipefail
 
 function createPostgresConfig() {
-  cp /etc/postgresql/"$PG_VERSION"/main/postgresql.custom.conf.tmpl /etc/postgresql/"$PG_VERSION"/main/conf.d/postgresql.custom.conf
-  echo "autovacuum = $AUTOVACUUM" | sudo tee -a /etc/postgresql/"$PG_VERSION"/main/conf.d/postgresql.custom.conf
-  cat /etc/postgresql/"$PG_VERSION"/main/conf.d/postgresql.custom.conf
+  cp /etc/postgresql/$PG_VERSION/main/postgresql.custom.conf.tmpl /etc/postgresql/$PG_VERSION/main/conf.d/postgresql.custom.conf
+  sudo -u postgres echo "autovacuum = $AUTOVACUUM" >> /etc/postgresql/$PG_VERSION/main/conf.d/postgresql.custom.conf
+  cat /etc/postgresql/$PG_VERSION/main/conf.d/postgresql.custom.conf
 }
 
 function setPostgresPassword() {
@@ -37,7 +37,7 @@ fi
 # carto build
 if [ ! -f /data/style/mapnik.xml ]; then
     cd /data/style/
-    carto "${NAME_MML:-project.mml}" > mapnik.xml
+    carto ${NAME_MML:-project.mml} > mapnik.xml
 fi
 
 if [ "$1" == "import" ]; then
@@ -46,14 +46,14 @@ if [ "$1" == "import" ]; then
     chown renderer: /data/database/
     chown -R postgres: /var/lib/postgresql /data/database/postgres/
     if [ ! -f /data/database/postgres/PG_VERSION ]; then
-        sudo -u postgres /usr/lib/postgresql/"$PG_VERSION"/bin/pg_ctl -D /data/database/postgres/ initdb -o "--locale C.UTF-8"
+        sudo -u postgres /usr/lib/postgresql/$PG_VERSION/bin/pg_ctl -D /data/database/postgres/ initdb -o "--locale C.UTF-8"
     fi
 
     # Initialize PostgreSQL
     createPostgresConfig
     service postgresql start
     INITIALIZE="$( sudo -u postgres psql -XtAc "SELECT 1 FROM pg_database WHERE datname='gis'" )"
-    if [ "$INITIALIZE" = '1' ]
+    if [ $INITIALIZE = '1' ]
     then
         echo "Skipping postgres initialization."
     else
@@ -75,19 +75,19 @@ if [ "$1" == "import" ]; then
 
     if [ -n "${DOWNLOAD_PBF:-}" ]; then
         echo "INFO: Download PBF file: $DOWNLOAD_PBF"
-        wget "${WGET_ARGS:-}" "$DOWNLOAD_PBF" -O /data/region.osm.pbf
+        wget ${WGET_ARGS:-} "$DOWNLOAD_PBF" -O /data/region.osm.pbf
         if [ -n "${DOWNLOAD_POLY:-}" ]; then
             echo "INFO: Download PBF-POLY file: $DOWNLOAD_POLY"
-            wget "${WGET_ARGS:-}" "$DOWNLOAD_POLY" -O /data/region.poly
+            wget ${WGET_ARGS:-} "$DOWNLOAD_POLY" -O /data/region.poly
         fi
     fi
 
     if [ "${UPDATES:-}" == "enabled" ] || [ "${UPDATES:-}" == "1" ]; then
         # determine and set osmosis_replication_timestamp (for consecutive updates)
-        REPLICATION_TIMESTAMP=$(osmium fileinfo -g header.option.osmosis_replication_timestamp /data/region.osm.pbf)
+        REPLICATION_TIMESTAMP=`osmium fileinfo -g header.option.osmosis_replication_timestamp /data/region.osm.pbf`
 
         # initial setup of osmosis workspace (for consecutive updates)
-        sudo -E -u renderer openstreetmap-tiles-update-expire.sh "$REPLICATION_TIMESTAMP"
+        sudo -E -u renderer openstreetmap-tiles-update-expire.sh $REPLICATION_TIMESTAMP
     fi
 
     # copy polygon file if available
@@ -102,18 +102,18 @@ if [ "$1" == "import" ]; then
     fi
 
     # Import data
-    if [ "$INITIALIZE" = "1" ]
+    if [ $INITIALIZE = "1" ]
     then
         echo "Postgres already initialized, appending new data... This is slow, have patience!"
     fi
 
     sudo -u renderer osm2pgsql -d gis --slim -G --hstore \
       $( (( INITIALIZE == "1" )) && echo '--append' || echo '--create' ) \
-      --tag-transform-script /data/style/"${NAME_LUA:-openstreetmap-carto.lua}"  \
-      --number-processes "${THREADS:-4}"  \
-      -S /data/style/"${NAME_STYLE:-openstreetmap-carto.style}"  \
+      --tag-transform-script /data/style/${NAME_LUA:-openstreetmap-carto.lua}  \
+      --number-processes ${THREADS:-4}  \
+      -S /data/style/${NAME_STYLE:-openstreetmap-carto.style}  \
       /data/region.osm.pbf  \
-      "${OSM2PGSQL_EXTRA_ARGS:-}"  \
+      ${OSM2PGSQL_EXTRA_ARGS:-}  \
     ;
 
     # clean up downloaded files
@@ -131,8 +131,8 @@ if [ "$1" == "import" ]; then
     fi
 
     # Create indexes
-    if [ -f /data/style/"${NAME_SQL:-indexes.sql}" ]; then
-        sudo -u postgres psql -d gis -f /data/style/"${NAME_SQL:-indexes.sql}"
+    if [ -f /data/style/${NAME_SQL:-indexes.sql} ]; then
+        sudo -u postgres psql -d gis -f /data/style/${NAME_SQL:-indexes.sql}
     fi
 
     #Import external data
