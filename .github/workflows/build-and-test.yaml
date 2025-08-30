@@ -1,5 +1,4 @@
-name: Build and test image
-
+name: Build, test and generate SBOM
 on:
   push:
     branches:
@@ -32,13 +31,11 @@ jobs:
       matrix:
         include:
         - arch    : amd64
-          mode    : build-and-test
           runner  : ubuntu-24.04
         - arch    : arm64
           variant : v8
-          mode    : build-and-test
           runner  : ubuntu-24.04-arm
-    runs-on: ${{matrix.runner}}
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
     env:
@@ -69,7 +66,7 @@ jobs:
       uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
       with:
         pull       : true
-        load       : ${{ matrix.mode == 'build-and-test' }}
+        load       : true
         platforms  : ${{ env.PLATFORM }}
         context    : .
         file       : ./Dockerfile
@@ -78,20 +75,17 @@ jobs:
         cache-to   : type=gha,scope=${{ github.workflow }}:${{ env.PLATFORM }},mode=max
     -
       name: Import Luxembourg
-      if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
         docker volume create ${VOLUME}
         docker run --rm --shm-size=4GB -v ${VOLUME}:${MOUNT} -e UPDATES=enabled ${{ env.IMAGE }}:testbuild-${{ matrix.arch }} import
     -
       name: Start server
-      if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
         docker run --shm-size=4GB -v ${VOLUME}:${MOUNT} -e UPDATES=enabled -p 80:80 -d --name ${CONTAINER} ${{ env.IMAGE }}:testbuild-${{ matrix.arch }} run
         sleep 30
         docker logs ${CONTAINER}
     -
       name: Download tiles
-      if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
         curl  http://localhost/tile/0/0/0.png            --fail  -o 000.png
         curl  http://localhost/tile/1/0/0.png            --fail  -o 100.png
@@ -102,7 +96,6 @@ jobs:
         curl  http://localhost/tile/18/135536/89345.png  --fail  -o example.png
     -
       name: Verify tiles
-      if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
         sha1sum  *.png
         sha1sum  --check  <<EOF
@@ -123,7 +116,6 @@ jobs:
         done
     -
       name: Cleanup
-      if  : ${{ matrix.mode == 'build-and-test' }}
       run : |
         docker rm --force --volumes ${CONTAINER}
         docker volume rm --force ${VOLUME}
