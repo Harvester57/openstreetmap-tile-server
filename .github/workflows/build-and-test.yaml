@@ -245,8 +245,7 @@ jobs:
           load: true
           tags: localbuild/testimage:latest
           platforms: linux/amd64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ github.workflow }}:linux/amd64
       -
         name: Generate SBOM and upload dependency results
         uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
