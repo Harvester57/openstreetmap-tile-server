@@ -46,7 +46,7 @@ FROM compiler-common
 # https://switch2osm.org/serving-tiles/manually-building-a-tile-server-18-04-lts/
 ENV DEBIAN_FRONTEND=noninteractive
 ENV AUTOVACUUM=on
-ENV UPDATES=enabled
+ENV UPDATES=disabled
 ENV REPLICATION_URL=https://planet.openstreetmap.org/replication/hour/
 ENV MAX_INTERVAL_SECONDS=3600
 ENV PG_VERSION 17
