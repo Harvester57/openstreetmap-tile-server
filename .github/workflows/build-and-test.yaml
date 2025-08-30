@@ -253,7 +253,7 @@ jobs:
           image: localbuild/testimage:latest
           artifact-name: "${{ github.event.repository.name }}.cyclonedx-sbom.json"
           output-file: "/tmp/${{ github.event.repository.name }}.cyclonedx-sbom.json"
-          dependency-snapshot: false
+          dependency-snapshot: true
           format: cyclonedx-json
           upload-artifact: true
       -
