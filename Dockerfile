@@ -1,4 +1,4 @@
-FROM ubuntu:24.04@sha256:7c06e91f61fa88c08cc74f7e1b7c69ae24910d745357e0dfe1d2c0322aaf20f9 AS compiler-common
+FROM ubuntu:24.04@sha256:66460d557b25769b102175144d538d88219c077c678a49af4afca6fbfc1b5252 AS compiler-common
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
@@ -10,7 +10,7 @@ RUN apt-get update \
  wget curl \
  git-core unzip unrar postgresql-common \
 && locale-gen $LANG && update-locale LANG=$LANG \
-&& /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v 17\
+&& /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v 17 \
 && apt-get update && apt-get -y upgrade\
 && apt-get clean \
 && rm -rf /var/lib/apt/lists/*
@@ -32,7 +32,7 @@ rm -rf .git
 FROM compiler-common AS compiler-helper-script
 
 WORKDIR /home/renderer/src
-RUN git clone https://github.com/zverik/regional
+RUN git clone https://github.com/zverik/regional --depth 1
 
 WORKDIR /home/renderer/src/regional
 RUN rm -rf .git \
