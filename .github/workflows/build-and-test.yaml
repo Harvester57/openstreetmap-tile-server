@@ -178,6 +178,7 @@ jobs:
         sbom       : true
         pull       : true
         push       : true
+        provenance : true
         platforms  : linux/amd64,linux/arm64/v8
         context    : .
         file       : ./Dockerfile
