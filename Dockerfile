@@ -11,8 +11,9 @@ RUN apt-get update \
  git-core unzip unrar postgresql-common \
 && locale-gen $LANG && update-locale LANG=$LANG \
 && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v 17 \
-&& apt-get update && apt-get -y upgrade\
+&& apt-get update && apt-get -y full-upgrade \
 && apt-get clean \
+&& apt-get autoremove --purge \
 && rm -rf /var/lib/apt/lists/*
 
 ###########################################################################################################
@@ -20,12 +21,10 @@ RUN apt-get update \
 FROM compiler-common AS compiler-stylesheet
 
 WORKDIR /root
-RUN git clone https://github.com/gravitystorm/openstreetmap-carto.git
+RUN git clone --branch v5.9.0 https://github.com/gravitystorm/openstreetmap-carto.git --depth 1
 
 WORKDIR /root/openstreetmap-carto
-RUN git pull --all && \
-git switch --detach v5.9.0 && \
-rm -rf .git
+RUN rm -rf .git
 
 ###########################################################################################################
 
@@ -147,19 +146,18 @@ RUN chown -R postgres:postgres /var/lib/postgresql \
 
 # Create volume directories
 RUN mkdir -p /run/renderd/ \
-  &&  mkdir  -p  /data/database/  \
-  &&  mkdir  -p  /data/style/  \
-  &&  mkdir  -p  /home/renderer/src/  \
-  &&  chown  -R  renderer:  /data/  \
-  &&  chown  -R  renderer:  /home/renderer/src/  \
-  &&  chown  -R  renderer:  /run/renderd  \
-  &&  mv  /var/lib/postgresql/$PG_VERSION/main/  /data/database/postgres/  \
-  &&  mv  /var/cache/renderd/tiles/            /data/tiles/     \
-  &&  chown  -R  renderer: /data/tiles \
-  &&  ln  -s  /data/database/postgres  /var/lib/postgresql/$PG_VERSION/main             \
-  &&  ln  -s  /data/style              /home/renderer/src/openstreetmap-carto  \
-  &&  ln  -s  /data/tiles              /var/cache/renderd/tiles                \
-;
+  &&  mkdir -p /data/database/  \
+  &&  mkdir -p /data/style/  \
+  &&  mkdir -p /home/renderer/src/  \
+  &&  chown -R renderer: /data/ \
+  &&  chown -R renderer: /home/renderer/src/ \
+  &&  chown -R renderer: /run/renderd \
+  &&  mv /var/lib/postgresql/$PG_VERSION/main/ /data/database/postgres/ \
+  &&  mv /var/cache/renderd/tiles/ /data/tiles/ \
+  &&  chown -R  renderer: /data/tiles \
+  &&  ln -s /data/database/postgres /var/lib/postgresql/$PG_VERSION/main \
+  &&  ln -s /data/style /home/renderer/src/openstreetmap-carto \
+  &&  ln -s /data/tiles /var/cache/renderd/tiles
 
 COPY renderd.conf /etc/renderd.conf
 
