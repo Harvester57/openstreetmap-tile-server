@@ -240,7 +240,7 @@ jobs:
           cache-from: type=gha,scope=${{ github.workflow }}:linux/amd64
       -
         name: Generate SBOM and upload dependency results
-        uses: anchore/sbom-action@0b82b0b1a22399a1c542d4d656f70cd903571b5c # v0.21.1
+        uses: anchore/sbom-action@62ad5284b8ced813296287a0b63906cb364b73ee # v0.22.0
         with:
           image: localbuild/testimage:latest
           artifact-name: "${{ github.event.repository.name }}.cyclonedx-sbom.json"
@@ -250,7 +250,7 @@ jobs:
           upload-artifact: true
       -
         name: Scan SBOM
-        uses: anchore/scan-action@62b74fb7bb810d2c45b1865f47a77655621862a5 # v7.2.3
+        uses: anchore/scan-action@0d444ed77d83ee2ba7f5ced0d90d640a1281d762 # v7.3.0
         id: scan
         with:
           cache-db: true
