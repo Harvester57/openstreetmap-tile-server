@@ -4,17 +4,17 @@ ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
-  ca-certificates gnupg lsb-release locales \
-  wget curl \
-  git-core unzip unrar postgresql-common \
-  && locale-gen $LANG && update-locale LANG=$LANG \
-  && /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v 17 \
-  && apt-get update && apt-get -y full-upgrade \
-  && apt-get clean \
-  && apt-get autoremove --purge \
-  && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates gnupg lsb-release locales \
+      wget curl \
+      git-core unzip unrar postgresql-common && \
+    locale-gen $LANG && update-locale LANG=$LANG && \
+    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v 17 && \
+    apt-get update && apt-get -y full-upgrade && \
+    apt-get clean && \
+    apt-get autoremove --purge && \
+    rm -rf /var/lib/apt/lists/*
 
 ###########################################################################################################
 
@@ -53,42 +53,42 @@ ENV PG_VERSION=17
 RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone
 
 # Get packages
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
-  apache2 \
-  cron \
-  dateutils \
-  fonts-hanazono \
-  fonts-noto-cjk \
-  fonts-noto-hinted \
-  fonts-noto-unhinted \
-  fonts-unifont \
-  gnupg2 \
-  gdal-bin \
-  liblua5.3-dev \
-  lua5.3 \
-  mapnik-utils \
-  npm \
-  osm2pgsql \
-  osmium-tool \
-  osmosis \
-  postgresql-$PG_VERSION \
-  postgresql-$PG_VERSION-postgis-3 \
-  postgresql-$PG_VERSION-postgis-3-scripts \
-  postgis \
-  python-is-python3 \
-  python3-mapnik \
-  python3-lxml \
-  python3-psycopg2 \
-  python3-shapely \
-  python3-pip \
-  renderd \
-  sudo \
-  vim \
-  pipx \
-  && apt-get clean autoclean \
-  && apt-get autoremove --yes \
-  && rm -rf /var/lib/{apt,dpkg,cache,log}/
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      apache2 \
+      cron \
+      dateutils \
+      fonts-hanazono \
+      fonts-noto-cjk \
+      fonts-noto-hinted \
+      fonts-noto-unhinted \
+      fonts-unifont \
+      gnupg2 \
+      gdal-bin \
+      liblua5.3-dev \
+      lua5.3 \
+      mapnik-utils \
+      npm \
+      osm2pgsql \
+      osmium-tool \
+      osmosis \
+      postgresql-$PG_VERSION \
+      postgresql-$PG_VERSION-postgis-3 \
+      postgresql-$PG_VERSION-postgis-3-scripts \
+      postgis \
+      python-is-python3 \
+      python3-mapnik \
+      python3-lxml \
+      python3-psycopg2 \
+      python3-shapely \
+      python3-pip \
+      renderd \
+      sudo \
+      vim \
+      pipx && \
+    apt-get clean autoclean \
+    apt-get autoremove --yes \
+    rm -rf /var/lib/{apt,dpkg,cache,log}/
 
 RUN adduser --disabled-password --gecos "" renderer
 
@@ -100,49 +100,51 @@ RUN wget https://github.com/stamen/terrain-classic/blob/master/fonts/unifont-Med
 
 # Install python libraries
 RUN pip3 install --break-system-packages \
-  requests \
-  psycopg2 \
-  pyyaml \
-  colormath \
-  numpy
+      requests \
+      psycopg2 \
+      pyyaml \
+      colormath \
+      numpy
 
 # Install carto for stylesheet
 RUN npm install -g carto@1.2.0
 
 # Configure Apache
-RUN echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" >> /etc/apache2/conf-available/mod_tile.conf \
-  && echo "LoadModule headers_module /usr/lib/apache2/modules/mod_headers.so" >> /etc/apache2/conf-available/mod_headers.conf \
-  && a2enconf mod_tile && a2enconf mod_headers
+RUN echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" >> /etc/apache2/conf-available/mod_tile.conf && \
+    echo "LoadModule headers_module /usr/lib/apache2/modules/mod_headers.so" >> /etc/apache2/conf-available/mod_headers.conf && \
+    a2enconf mod_tile && a2enconf mod_headers
+
 COPY apache.conf /etc/apache2/sites-available/000-default.conf
-RUN ln -sf /dev/stdout /var/log/apache2/access.log \
-  && ln -sf /dev/stderr /var/log/apache2/error.log
+
+RUN ln -sf /dev/stdout /var/log/apache2/access.log && \
+    ln -sf /dev/stderr /var/log/apache2/error.log
 
 # leaflet
 COPY leaflet-demo.html /var/www/html/index.html
 WORKDIR /var/www/html/
-RUN wget https://github.com/Leaflet/Leaflet/releases/download/v1.9.4/leaflet.zip \
-  && unzip leaflet.zip \
-  && mv dist/* . \
-  && rmdir dist \
-  && rm leaflet.zip
+RUN wget https://github.com/Leaflet/Leaflet/releases/download/v1.9.4/leaflet.zip && \
+    unzip leaflet.zip && \
+    mv dist/* . && \
+    rmdir dist && \
+    rm leaflet.zip
 
 # Icon
 RUN wget -O /var/www/html/favicon.ico https://www.openstreetmap.org/favicon.ico
 
 # Copy update scripts
 COPY openstreetmap-tiles-update-expire.sh /usr/bin/
-RUN chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh \
-  && mkdir /var/log/tiles \
-  && chmod a+rw /var/log/tiles \
-  && ln -s /home/renderer/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag \
-  && echo "* * * * *   renderer    openstreetmap-tiles-update-expire.sh\n" >> /etc/crontab
+RUN chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
+    mkdir /var/log/tiles && \
+    chmod a+rw /var/log/tiles && \
+    ln -s /home/renderer/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag && \
+    echo "* * * * *   renderer    openstreetmap-tiles-update-expire.sh\n" >> /etc/crontab
 
 # Configure PosgtreSQL
 COPY postgresql.custom.conf.tmpl /etc/postgresql/$PG_VERSION/main/
-RUN chown -R postgres:postgres /var/lib/postgresql \
-  && chown postgres:postgres /etc/postgresql/$PG_VERSION/main/postgresql.custom.conf.tmpl \
-  && echo "host all all 0.0.0.0/0 scram-sha-256" >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf \
-  && echo "host all all ::/0 scram-sha-256" >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf
+RUN chown -R postgres:postgres /var/lib/postgresql && \
+    chown postgres:postgres /etc/postgresql/$PG_VERSION/main/postgresql.custom.conf.tmpl && \
+    echo "host all all 0.0.0.0/0 scram-sha-256" >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf && \
+    echo "host all all ::/0 scram-sha-256" >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf
 
 # Create volume directories
 RUN mkdir -p /run/renderd/ \
