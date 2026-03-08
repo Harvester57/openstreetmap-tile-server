@@ -90,10 +90,10 @@ RUN apt-get update && \
 RUN adduser --disabled-password --gecos "" renderer
 
 # Get Noto Emoji Regular font, despite it being deprecated by Google
-RUN wget https://github.com/googlefonts/noto-emoji/blob/9a5261d871451f9b5183c93483cbd68ed916b1e9/fonts/NotoEmoji-Regular.ttf?raw=true --content-disposition -P /usr/share/fonts/
+COPY NotoEmoji-Regular.ttf /usr/share/fonts/
 
 # For some reason this one is missing in the default packages
-RUN wget https://github.com/stamen/terrain-classic/blob/master/fonts/unifont-Medium.ttf?raw=true --content-disposition -P /usr/share/fonts/
+COPY unifont-Medium.ttf /usr/share/fonts/
 
 # Install python libraries
 RUN pip3 install --break-system-packages \
