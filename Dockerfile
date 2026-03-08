@@ -79,13 +79,10 @@ RUN apt-get update && \
       python-is-python3 \
       python3-mapnik \
       python3-lxml \
-      python3-psycopg2 \
       python3-shapely \
       python3-pip \
       renderd \
-      sudo \
-      vim \
-      pipx && \
+      sudo && \
     apt-get clean && \
     apt-get autoremove --yes && \
     rm -rf /var/lib/apt/lists/*
