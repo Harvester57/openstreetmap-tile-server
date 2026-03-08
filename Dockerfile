@@ -86,9 +86,9 @@ RUN apt-get update && \
       sudo \
       vim \
       pipx && \
-    apt-get clean autoclean \
-    apt-get autoremove --yes \
-    rm -rf /var/lib/{apt,dpkg,cache,log}/
+    apt-get clean && \
+    apt-get autoremove --yes && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN adduser --disabled-password --gecos "" renderer
 
