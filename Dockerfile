@@ -11,7 +11,6 @@ RUN apt-get update && \
       git-core unzip unrar postgresql-common && \
     locale-gen $LANG && update-locale LANG=$LANG && \
     /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v 17 && \
-    apt-get update && apt-get -y full-upgrade && \
     apt-get clean && \
     apt-get autoremove --purge && \
     rm -rf /var/lib/apt/lists/*
