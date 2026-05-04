@@ -107,11 +107,10 @@ if [ "$1" == "import" ]; then
         echo "Postgres already initialized, appending new data... This is slow, have patience!"
     fi
 
-    sudo -u renderer osm2pgsql -O flex -d gis --slim -G --hstore \
+    sudo -u renderer osm2pgsql -O flex -d gis --slim \
       $( (( INITIALIZE == "1" )) && echo '--append' || echo '--create' ) \
-      --tag-transform-script /data/style/${NAME_LUA:-openstreetmap-carto-flex.lua}  \
+      -S /data/style/${NAME_LUA:-openstreetmap-carto-flex.lua}  \
       --number-processes ${THREADS:-4}  \
-      -S /data/style/${NAME_STYLE:-openstreetmap-carto.style}  \
       /data/region.osm.pbf  \
       ${OSM2PGSQL_EXTRA_ARGS:-}  \
     ;
