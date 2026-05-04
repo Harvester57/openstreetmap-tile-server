@@ -129,6 +129,9 @@ if [ "$1" == "import" ]; then
     # Load functions for OSM Carto v5.9.0
     sudo -u postgres psql -d gis -f /data/style/functions.sql
 
+    # Add additional tables for OSM Carto v6.0.0 onwards
+    sudo -u postgres psql -d gis -f /data/style/common-values.sql
+
     #Import external data
     chown -R renderer: /home/renderer/src/ /data/style/
     if [ -f /data/style/scripts/get-external-data.py ] && [ -f /data/style/external-data.yml ]; then
