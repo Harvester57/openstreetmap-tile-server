@@ -23,7 +23,8 @@ WORKDIR /root
 RUN git clone --branch v6.0.0 https://github.com/gravitystorm/openstreetmap-carto.git --depth 1
 
 WORKDIR /root/openstreetmap-carto
-RUN rm -rf .git
+RUN sed -i 's/^--\s*GRANT SELECT ON carto_pois TO <render user>;/GRANT SELECT ON carto_pois TO renderer;/' common-values.sql && \
+    rm -rf .git
 
 ###########################################################################################################
 
