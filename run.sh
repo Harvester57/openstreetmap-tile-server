@@ -109,7 +109,7 @@ if [ "$1" == "import" ]; then
 
     sudo -u renderer osm2pgsql -d gis --slim -G --hstore \
       $( (( INITIALIZE == "1" )) && echo '--append' || echo '--create' ) \
-      --tag-transform-script /data/style/${NAME_LUA:-openstreetmap-carto.lua}  \
+      --tag-transform-script /data/style/${NAME_LUA:-openstreetmap-carto-flex.lua}  \
       --number-processes ${THREADS:-4}  \
       -S /data/style/${NAME_STYLE:-openstreetmap-carto.style}  \
       /data/region.osm.pbf  \
