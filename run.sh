@@ -187,6 +187,9 @@ if [ "$1" == "run" ]; then
     # Load functions for OSM Carto v5.9.0
     sudo -u postgres psql -d gis -f /data/style/functions.sql
 
+    # Add additional tables for OSM Carto v6.0.0 onwards
+    sudo -u postgres psql -d gis -f /data/style/common-values.sql
+
     # Configure renderd threads
     sed -i -E "s/num_threads=[0-9]+/num_threads=${THREADS:-4}/g" /etc/renderd.conf
 
