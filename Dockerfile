@@ -142,7 +142,7 @@ RUN mkdir -p /run/renderd/ /data/database/ /data/style/ /home/renderer/src/ && \
     chown -R renderer: /data/tiles && \
     ln -s /data/database/postgres /var/lib/postgresql/$PG_VERSION/main && \
     ln -s /data/style /home/renderer/src/openstreetmap-carto && \
-    ln -s /data/tiles /var/cache/renderd/tile
+    ln -s /data/tiles /var/cache/renderd/tiles
 
 COPY renderd.conf /etc/renderd.conf
 
