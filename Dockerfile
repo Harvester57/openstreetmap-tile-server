@@ -22,7 +22,6 @@ RUN apt-get update && \
     liblua5.3-dev \
     lua5.3 \
     mapnik-utils \
-    npm \
     node-carto \
     osm2pgsql \
     osmium-tool \
