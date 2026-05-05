@@ -104,7 +104,7 @@ RUN pip3 install --break-system-packages --no-cache-dir \
       numpy
 
 # Install carto for stylesheet
-RUN npm install -g carto@1.2.0
+RUN npm install -g carto@1.2.0 && npm cache clean --force
 
 # Configure Apache
 RUN echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" >> /etc/apache2/conf-available/mod_tile.conf && \
