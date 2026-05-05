@@ -15,7 +15,7 @@ updates:
     assignees:
     - "Harvester57"
     schedule:
-      interval: daily
+      interval: weekly
     groups:
       actions-dependencies:
         applies-to: version-updates
