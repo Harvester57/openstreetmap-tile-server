@@ -1,18 +1,47 @@
 FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b AS compiler-common
-ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
+# PostgreSQL database version to install
+ENV PG_VERSION=17
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates gnupg lsb-release locales \
       wget curl \
-      git-core unzip unrar postgresql-common && \
+      git-core unzip unrar postgresql-common \
+      apache2 \
+      cron \
+      dateutils \
+      fonts-hanazono \
+      fonts-noto-cjk \
+      fonts-noto-hinted \
+      fonts-noto-unhinted \
+      fonts-unifont \
+      gnupg2 \
+      gdal-bin \
+      liblua5.3-dev \
+      lua5.3 \
+      mapnik-utils \
+      npm \
+      osm2pgsql \
+      osmium-tool \
+      osmosis \
+      postgis \
+      python-is-python3 \
+      python3-mapnik \
+      python3-lxml \
+      python3-shapely \
+      python3-pip \
+      renderd \
+      sudo && \
     locale-gen $LANG && update-locale LANG=$LANG && \
-    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v 17 && \
+    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v $PG_VERSION && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        postgresql-$PG_VERSION \
+        postgresql-$PG_VERSION-postgis-3 \
+        postgresql-$PG_VERSION-postgis-3-scripts && \
     apt-get clean && \
-    apt-get autoremove --purge && \
     rm -rf /var/lib/apt/lists/*
 
 ###########################################################################################################
@@ -43,51 +72,13 @@ FROM compiler-common
 
 # Based on
 # https://switch2osm.org/serving-tiles/manually-building-a-tile-server-18-04-lts/
-ENV DEBIAN_FRONTEND=noninteractive
 ENV AUTOVACUUM=on
 ENV UPDATES=disabled
 ENV REPLICATION_URL=https://planet.openstreetmap.org/replication/hour/
 ENV MAX_INTERVAL_SECONDS=3600
-ENV PG_VERSION=17
 
-RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone
-
-# Get packages
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      apache2 \
-      cron \
-      dateutils \
-      fonts-hanazono \
-      fonts-noto-cjk \
-      fonts-noto-hinted \
-      fonts-noto-unhinted \
-      fonts-unifont \
-      gnupg2 \
-      gdal-bin \
-      liblua5.3-dev \
-      lua5.3 \
-      mapnik-utils \
-      npm \
-      osm2pgsql \
-      osmium-tool \
-      osmosis \
-      postgresql-$PG_VERSION \
-      postgresql-$PG_VERSION-postgis-3 \
-      postgresql-$PG_VERSION-postgis-3-scripts \
-      postgis \
-      python-is-python3 \
-      python3-mapnik \
-      python3-lxml \
-      python3-shapely \
-      python3-pip \
-      renderd \
-      sudo && \
-    apt-get clean && \
-    apt-get autoremove --yes && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN adduser --disabled-password --gecos "" renderer
+RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone && \
+    adduser --disabled-password --gecos "" renderer
 
 # Get Noto Emoji Regular font, despite it being deprecated by Google
 COPY NotoEmoji-Regular.ttf /usr/share/fonts/
@@ -96,7 +87,7 @@ COPY NotoEmoji-Regular.ttf /usr/share/fonts/
 COPY unifont-Medium.ttf /usr/share/fonts/
 
 # Install python libraries
-RUN pip3 install --break-system-packages \
+RUN pip3 install --break-system-packages --no-cache-dir \
       requests \
       psycopg2 \
       pyyaml \
@@ -104,7 +95,7 @@ RUN pip3 install --break-system-packages \
       numpy
 
 # Install carto for stylesheet
-RUN npm install -g carto@1.2.0
+RUN npm install -g carto@1.2.0 && npm cache clean --force
 
 # Configure Apache
 RUN echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" >> /etc/apache2/conf-available/mod_tile.conf && \
@@ -144,19 +135,14 @@ RUN chown -R postgres:postgres /var/lib/postgresql && \
     echo "host all all ::/0 scram-sha-256" >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf
 
 # Create volume directories
-RUN mkdir -p /run/renderd/ \
-  &&  mkdir -p /data/database/  \
-  &&  mkdir -p /data/style/  \
-  &&  mkdir -p /home/renderer/src/  \
-  &&  chown -R renderer: /data/ \
-  &&  chown -R renderer: /home/renderer/src/ \
-  &&  chown -R renderer: /run/renderd \
-  &&  mv /var/lib/postgresql/$PG_VERSION/main/ /data/database/postgres/ \
-  &&  mv /var/cache/renderd/tiles/ /data/tiles/ \
-  &&  chown -R  renderer: /data/tiles \
-  &&  ln -s /data/database/postgres /var/lib/postgresql/$PG_VERSION/main \
-  &&  ln -s /data/style /home/renderer/src/openstreetmap-carto \
-  &&  ln -s /data/tiles /var/cache/renderd/tiles
+RUN mkdir -p /run/renderd/ /data/database/ /data/style/ /home/renderer/src/ && \
+    chown -R renderer: /data/ /home/renderer/src/ /run/renderd && \
+    mv /var/lib/postgresql/$PG_VERSION/main/ /data/database/postgres/ && \
+    mv /var/cache/renderd/tiles/ /data/tiles/ && \
+    chown -R renderer: /data/tiles && \
+    ln -s /data/database/postgres /var/lib/postgresql/$PG_VERSION/main && \
+    ln -s /data/style /home/renderer/src/openstreetmap-carto && \
+    ln -s /data/tiles /var/cache/renderd/tiles
 
 COPY renderd.conf /etc/renderd.conf
 
@@ -166,6 +152,7 @@ COPY --from=compiler-stylesheet /root/openstreetmap-carto /home/renderer/src/ope
 
 # Start running
 COPY run.sh /
+HEALTHCHECK CMD curl --fail http://localhost/ || exit 1
 ENTRYPOINT ["/run.sh"]
 CMD []
 EXPOSE 80 5432
