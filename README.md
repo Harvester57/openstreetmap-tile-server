@@ -48,7 +48,9 @@ Therefore, when you only have a `.osm.pbf` file but not a `.poly` file, you shou
 
 ### Letting the container download the file
 
-It is also possible to let the container download files for you rather than mounting them in advance by using the `DOWNLOAD_PBF` and `DOWNLOAD_POLY` parameters:
+It is also possible to let the container download files for you rather than mounting them in advance by using the `DOWNLOAD_PBF` and `DOWNLOAD_POLY` parameters.
+
+You can pass extra arguments to `wget` (e.g. for proxy or retry settings) using the `WGET_ARGS` environment variable.
 
 ```
 docker run \
@@ -262,6 +264,33 @@ Warning: enabling `FLAT_NOTES` together with `UPDATES` only works for entire pla
 ### Benchmarks
 
 You can find an example of the import performance to expect with this image on the [OpenStreetMap wiki](https://wiki.openstreetmap.org/wiki/Osm2pgsql/benchmarks#debian_9_.2F_openstreetmap-tile-server).
+
+## Environment variable reference
+
+The following table summarizes all supported environment variables, their default values, and which command (`import`, `run`, or both) they apply to.
+
+| Variable | Default | Scope | Description |
+|---|---|---|---|
+| `DOWNLOAD_PBF` | *(none)* | `import` | URL to download a PBF file instead of mounting one |
+| `DOWNLOAD_POLY` | *(none)* | `import` | URL to download a polygon file for region-limited updates |
+| `WGET_ARGS` | *(none)* | `import` | Extra arguments passed to `wget` for downloads |
+| `FLAT_NODES` | `disabled` | `import` | Set to `enabled` to use flat-nodes mode (recommended for planet imports) |
+| `OSM2PGSQL_EXTRA_ARGS` | *(none)* | `import` | Extra arguments passed to `osm2pgsql` (e.g. `-C 4096` for cache) |
+| `ALLOW_CORS` | `disabled` | `run` | Set to `enabled` to add the `Access-Control-Allow-Origin` header |
+| `THREADS` | `4` | both | Number of threads for importing and tile rendering |
+| `UPDATES` | `disabled` | both | Set to `enabled` to activate automatic diff updates |
+| `AUTOVACUUM` | `on` | both | PostgreSQL autovacuum setting (`on` or `off`) |
+| `PGPASSWORD` | `renderer` | both | PostgreSQL password for the `renderer` user |
+| `NAME_LUA` | `openstreetmap-carto-flex.lua` | both | Lua transform script for the style |
+| `NAME_STYLE` | `openstreetmap-carto.style` | both | Style file to use |
+| `NAME_MML` | `project.mml` | both | MML file to render to `mapnik.xml` |
+| `NAME_SQL` | `indexes.sql` | both | SQL file for index creation |
+| `REPLICATION_URL` | `https://planet.openstreetmap.org/replication/hour/` | updates | Replication server URL |
+| `MAX_INTERVAL_SECONDS` | `3600` | updates | Maximum replication interval in seconds |
+| `EXPIRY_MINZOOM` | `13` | updates | Minimum zoom level for tile expiry |
+| `EXPIRY_TOUCHFROM` | `13` | updates | Zoom level from which expired tiles are marked |
+| `EXPIRY_DELETEFROM` | `19` | updates | Zoom level from which expired tiles are deleted |
+| `EXPIRY_MAXZOOM` | `20` | updates | Maximum zoom level for tile expiry |
 
 ## Troubleshooting
 
