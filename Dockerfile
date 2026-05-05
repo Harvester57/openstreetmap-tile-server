@@ -166,6 +166,7 @@ COPY --from=compiler-stylesheet /root/openstreetmap-carto /home/renderer/src/ope
 
 # Start running
 COPY run.sh /
+HEALTHCHECK CMD curl --fail http://localhost/ || exit 1
 ENTRYPOINT ["/run.sh"]
 CMD []
 EXPOSE 80 5432
