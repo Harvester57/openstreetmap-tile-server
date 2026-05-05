@@ -35,6 +35,9 @@ RUN apt-get update && \
     python3-pip \
     python3-psycopg2 \
     python3-yaml \
+    python3-colormath \
+    python3-numpy \
+    python3-requests \
     renderd \
     sudo && \
     locale-gen $LANG && update-locale LANG=$LANG && \
@@ -92,12 +95,6 @@ COPY NotoEmoji-Regular.ttf /usr/share/fonts/
 
 # For some reason this one is missing in the default packages
 COPY unifont-Medium.ttf /usr/share/fonts/
-
-# Install python libraries
-RUN pip3 install --break-system-packages --no-cache-dir \
-    requests \
-    colormath \
-    numpy
 
 # Configure Apache
 RUN echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" >> /etc/apache2/conf-available/mod_tile.conf && \
