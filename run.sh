@@ -13,17 +13,44 @@ function setPostgresPassword() {
 }
 
 if [ "$#" -ne 1 ]; then
-    echo "usage: <import|run>"
-    echo "commands:"
-    echo "    import: Set up the database and import /data/region.osm.pbf"
-    echo "    run: Runs Apache and renderd to serve tiles at /tile/{z}/{x}/{y}.png"
-    echo "environment variables:"
-    echo "    THREADS: defines number of threads used for importing / tile rendering"
-    echo "    UPDATES: consecutive updates (enabled/disabled)"
-    echo "    NAME_LUA: name of .lua script to run as part of the style"
-    echo "    NAME_STYLE: name of the .style to use"
-    echo "    NAME_MML: name of the .mml file to render to mapnik.xml"
-    echo "    NAME_SQL: name of the .sql file to use"
+    cat >&2 <<EOF
+OpenStreetMap Tile Server
+
+Usage: run.sh <command>
+
+Commands:
+    import  Set up the database and import /data/region.osm.pbf
+    run     Start Apache and renderd to serve tiles at /tile/{z}/{x}/{y}.png
+
+Environment variables (import):
+    DOWNLOAD_PBF=<url>           Download a PBF file instead of mounting one
+    DOWNLOAD_POLY=<url>          Download a polygon file for region-limited updates
+    WGET_ARGS=<args>             Extra arguments passed to wget for downloads
+    FLAT_NODES=enabled|disabled  Use flat-nodes mode (recommended for planet imports)
+    OSM2PGSQL_EXTRA_ARGS=<args>  Extra arguments passed to osm2pgsql (e.g. -C 4096)
+
+Environment variables (run):
+    ALLOW_CORS=enabled           Set the Access-Control-Allow-Origin header on tiles
+
+Environment variables (import & run):
+    THREADS=<n>                  Number of threads for importing / rendering (default: 4)
+    UPDATES=enabled|disabled     Enable automatic diff updates from OpenStreetMap
+    AUTOVACUUM=on|off            PostgreSQL autovacuum setting (default: on)
+    PGPASSWORD=<password>        PostgreSQL password for the renderer user (default: renderer)
+
+    NAME_LUA=<file>              Lua script for the style (default: openstreetmap-carto-flex.lua)
+    NAME_STYLE=<file>            Style file to use (default: openstreetmap-carto.style)
+    NAME_MML=<file>              MML file to render to mapnik.xml (default: project.mml)
+    NAME_SQL=<file>              SQL file for index creation (default: indexes.sql)
+
+Environment variables (updates):
+    REPLICATION_URL=<url>        Replication server URL (default: https://planet.openstreetmap.org/replication/hour/)
+    MAX_INTERVAL_SECONDS=<n>     Max replication interval in seconds (default: 3600)
+    EXPIRY_MINZOOM=<n>           Minimum zoom level for tile expiry (default: 13)
+    EXPIRY_TOUCHFROM=<n>         Zoom level from which tiles are marked as expired (default: 13)
+    EXPIRY_DELETEFROM=<n>        Zoom level from which tiles are deleted (default: 19)
+    EXPIRY_MAXZOOM=<n>           Maximum zoom level for tile expiry (default: 20)
+EOF
     exit 1
 fi
 
