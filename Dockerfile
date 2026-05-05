@@ -96,7 +96,7 @@ COPY NotoEmoji-Regular.ttf /usr/share/fonts/
 COPY unifont-Medium.ttf /usr/share/fonts/
 
 # Install python libraries
-RUN pip3 install --break-system-packages \
+RUN pip3 install --break-system-packages --no-cache-dir \
       requests \
       psycopg2 \
       pyyaml \
