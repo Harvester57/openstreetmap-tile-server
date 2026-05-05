@@ -1,14 +1,46 @@
 FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b AS compiler-common
 ENV ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
+# PostgreSQL database version to install
+ENV PG_VERSION=17
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates gnupg lsb-release locales \
       wget curl \
-      git-core unzip unrar postgresql-common && \
+      git-core unzip unrar postgresql-common \
+      apache2 \
+      cron \
+      dateutils \
+      fonts-hanazono \
+      fonts-noto-cjk \
+      fonts-noto-hinted \
+      fonts-noto-unhinted \
+      fonts-unifont \
+      gnupg2 \
+      gdal-bin \
+      liblua5.3-dev \
+      lua5.3 \
+      mapnik-utils \
+      npm \
+      osm2pgsql \
+      osmium-tool \
+      osmosis \
+      postgis \
+      python-is-python3 \
+      python3-mapnik \
+      python3-lxml \
+      python3-shapely \
+      python3-pip \
+      renderd \
+      sudo && \
     locale-gen $LANG && update-locale LANG=$LANG && \
-    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v 17 && \
+    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v $PG_VERSION && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        postgresql-$PG_VERSION \
+        postgresql-$PG_VERSION-postgis-3 \
+        postgresql-$PG_VERSION-postgis-3-scripts && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -40,50 +72,13 @@ FROM compiler-common
 
 # Based on
 # https://switch2osm.org/serving-tiles/manually-building-a-tile-server-18-04-lts/
-ENV DEBIAN_FRONTEND=noninteractive
 ENV AUTOVACUUM=on
 ENV UPDATES=disabled
 ENV REPLICATION_URL=https://planet.openstreetmap.org/replication/hour/
 ENV MAX_INTERVAL_SECONDS=3600
-ENV PG_VERSION=17
 
-RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone
-
-# Get packages
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      apache2 \
-      cron \
-      dateutils \
-      fonts-hanazono \
-      fonts-noto-cjk \
-      fonts-noto-hinted \
-      fonts-noto-unhinted \
-      fonts-unifont \
-      gnupg2 \
-      gdal-bin \
-      liblua5.3-dev \
-      lua5.3 \
-      mapnik-utils \
-      npm \
-      osm2pgsql \
-      osmium-tool \
-      osmosis \
-      postgresql-$PG_VERSION \
-      postgresql-$PG_VERSION-postgis-3 \
-      postgresql-$PG_VERSION-postgis-3-scripts \
-      postgis \
-      python-is-python3 \
-      python3-mapnik \
-      python3-lxml \
-      python3-shapely \
-      python3-pip \
-      renderd \
-      sudo && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN adduser --disabled-password --gecos "" renderer
+RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone && \
+    adduser --disabled-password --gecos "" renderer
 
 # Get Noto Emoji Regular font, despite it being deprecated by Google
 COPY NotoEmoji-Regular.ttf /usr/share/fonts/
