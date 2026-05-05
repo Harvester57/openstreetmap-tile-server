@@ -9,7 +9,7 @@ function createPostgresConfig() {
 }
 
 function setPostgresPassword() {
-    sudo -u postgres psql -c "ALTER USER renderer PASSWORD '${PGPASSWORD:-renderer}'"
+    sudo -u postgres psql -c "ALTER USER _renderd PASSWORD '${PGPASSWORD:-_renderd}'"
 }
 
 if [ "$#" -ne 1 ]; then
@@ -27,7 +27,7 @@ Environment variables (import):
     DOWNLOAD_POLY=<url>          Download a polygon file for region-limited updates
     WGET_ARGS=<args>             Extra arguments passed to wget for downloads
     FLAT_NODES=enabled|disabled  Use flat-nodes mode (recommended for planet imports)
-    OSM2PGSQL_EXTRA_ARGS=<args>  Extra arguments passed to osm2pgsql (e.g. -C 4096)
+    OSM2PGSQL_EXTRA_ARGS=<args>  Extra arguments passed to osm2pgsql (default: -C 2500)
 
 Environment variables (run):
     ALLOW_CORS=enabled           Set the Access-Control-Allow-Origin header on tiles
@@ -36,7 +36,7 @@ Environment variables (import & run):
     THREADS=<n>                  Number of threads for importing / rendering (default: 4)
     UPDATES=enabled|disabled     Enable automatic diff updates from OpenStreetMap
     AUTOVACUUM=on|off            PostgreSQL autovacuum setting (default: on)
-    PGPASSWORD=<password>        PostgreSQL password for the renderer user (default: renderer)
+    PGPASSWORD=<password>        PostgreSQL password for the _renderd user (default: _renderd)
 
     NAME_LUA=<file>              Lua script for the style (default: openstreetmap-carto-flex.lua)
     NAME_STYLE=<file>            Style file to use (default: openstreetmap-carto.style)
@@ -58,7 +58,7 @@ set -x
 
 # if there is no custom style mounted, then use osm-carto
 if [ ! "$(ls -A /data/style/)" ]; then
-    mv /home/renderer/src/openstreetmap-carto-backup/* /data/style/
+    mv /home/_renderd/src/openstreetmap-carto-backup/* /data/style/
 fi
 
 # carto build
@@ -70,7 +70,7 @@ fi
 if [ "$1" == "import" ]; then
     # Ensure that database directory is in right state
     mkdir -p /data/database/postgres/
-    chown renderer: /data/database/
+    chown _renderd: /data/database/
     chown -R postgres: /var/lib/postgresql /data/database/postgres/
     if [ ! -f /data/database/postgres/PG_VERSION ]; then
         sudo -u postgres /usr/lib/postgresql/$PG_VERSION/bin/pg_ctl -D /data/database/postgres/ initdb -o "--locale C.UTF-8"
@@ -84,12 +84,12 @@ if [ "$1" == "import" ]; then
     then
         echo "Skipping postgres initialization."
     else
-        sudo -u postgres createuser renderer
-        sudo -u postgres createdb -E UTF8 -O renderer gis
+        sudo -u postgres createuser _renderd
+        sudo -u postgres createdb -E UTF8 -O _renderd gis
         sudo -u postgres psql -d gis -c "CREATE EXTENSION postgis;"
         sudo -u postgres psql -d gis -c "CREATE EXTENSION hstore;"
-        sudo -u postgres psql -d gis -c "ALTER TABLE geometry_columns OWNER TO renderer;"
-        sudo -u postgres psql -d gis -c "ALTER TABLE spatial_ref_sys OWNER TO renderer;"
+        sudo -u postgres psql -d gis -c "ALTER TABLE geometry_columns OWNER TO _renderd;"
+        sudo -u postgres psql -d gis -c "ALTER TABLE spatial_ref_sys OWNER TO _renderd;"
         setPostgresPassword
     fi 
 
@@ -114,13 +114,13 @@ if [ "$1" == "import" ]; then
         REPLICATION_TIMESTAMP=`osmium fileinfo -g header.option.osmosis_replication_timestamp /data/region.osm.pbf`
 
         # initial setup of osmosis workspace (for consecutive updates)
-        sudo -E -u renderer openstreetmap-tiles-update-expire.sh $REPLICATION_TIMESTAMP
+        sudo -E -u _renderd openstreetmap-tiles-update-expire.sh $REPLICATION_TIMESTAMP
     fi
 
     # copy polygon file if available
     if [ -f /data/region.poly ]; then
         cp /data/region.poly /data/database/region.poly
-        chown renderer: /data/database/region.poly
+        chown _renderd: /data/database/region.poly
     fi
 
     # flat-nodes
@@ -134,7 +134,7 @@ if [ "$1" == "import" ]; then
         echo "Postgres already initialized, appending new data... This is slow, have patience!"
     fi
 
-    sudo -u renderer osm2pgsql -O flex -d gis --slim \
+    sudo -u _renderd osm2pgsql -O flex -d gis --slim \
       $( (( INITIALIZE == "1" )) && echo '--append' || echo '--create' ) \
       -S /data/style/${NAME_LUA:-openstreetmap-carto-flex.lua}  \
       --number-processes ${THREADS:-4}  \
@@ -145,7 +145,7 @@ if [ "$1" == "import" ]; then
     # old flat-nodes dir
     if [ -f /nodes/flat_nodes.bin ] && ! [ -f /data/database/flat_nodes.bin ]; then
         mv /nodes/flat_nodes.bin /data/database/flat_nodes.bin
-        chown renderer: /data/database/flat_nodes.bin
+        chown _renderd: /data/database/flat_nodes.bin
     fi
 
     # Create indexes
@@ -160,13 +160,13 @@ if [ "$1" == "import" ]; then
     sudo -u postgres psql -d gis -f /data/style/common-values.sql
 
     #Import external data
-    chown -R renderer: /home/renderer/src/ /data/style/
+    chown -R _renderd: /home/_renderd/src/ /data/style/
     if [ -f /data/style/scripts/get-external-data.py ] && [ -f /data/style/external-data.yml ]; then
-        sudo -E -u renderer python3 /data/style/scripts/get-external-data.py -c /data/style/external-data.yml -D /data/style/data
+        sudo -E -u _renderd python3 /data/style/scripts/get-external-data.py -c /data/style/external-data.yml -D /data/style/data
     fi
 
     # Register that data has changed for mod_tile caching purposes
-    sudo -u renderer touch /data/database/planet-import-complete
+    sudo -u _renderd touch /data/database/planet-import-complete
 
     service postgresql stop
 
@@ -224,10 +224,10 @@ if [ "$1" == "run" ]; then
     if [ "${UPDATES:-}" == "enabled" ] || [ "${UPDATES:-}" == "1" ]; then
         printenv > /etc/environment
         /etc/init.d/cron start
-        sudo -u renderer touch /var/log/tiles/run.log; tail -f /var/log/tiles/run.log >> /proc/1/fd/1 &
-        sudo -u renderer touch /var/log/tiles/osmosis.log; tail -f /var/log/tiles/osmosis.log >> /proc/1/fd/1 &
-        sudo -u renderer touch /var/log/tiles/expiry.log; tail -f /var/log/tiles/expiry.log >> /proc/1/fd/1 &
-        sudo -u renderer touch /var/log/tiles/osm2pgsql.log; tail -f /var/log/tiles/osm2pgsql.log >> /proc/1/fd/1 &
+        sudo -u _renderd touch /var/log/tiles/run.log; tail -f /var/log/tiles/run.log >> /proc/1/fd/1 &
+        sudo -u _renderd touch /var/log/tiles/osmosis.log; tail -f /var/log/tiles/osmosis.log >> /proc/1/fd/1 &
+        sudo -u _renderd touch /var/log/tiles/expiry.log; tail -f /var/log/tiles/expiry.log >> /proc/1/fd/1 &
+        sudo -u _renderd touch /var/log/tiles/osm2pgsql.log; tail -f /var/log/tiles/osm2pgsql.log >> /proc/1/fd/1 &
 
     fi
 
@@ -237,7 +237,7 @@ if [ "$1" == "run" ]; then
     }
     trap stop_handler SIGTERM
 
-    sudo -u renderer renderd -f -c /etc/renderd.conf &
+    sudo -u _renderd renderd -f -c /etc/renderd.conf &
     child=$!
     wait "$child"
 

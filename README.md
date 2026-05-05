@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/Overv/openstreetmap-tile-server.svg?branch=master)](https://travis-ci.org/Overv/openstreetmap-tile-server) [![](https://images.microbadger.com/badges/image/overv/openstreetmap-tile-server.svg)](https://microbadger.com/images/overv/openstreetmap-tile-server "openstreetmap-tile-server")
 [![Docker Image Version (latest semver)](https://img.shields.io/docker/v/overv/openstreetmap-tile-server?label=docker%20image)](https://hub.docker.com/r/overv/openstreetmap-tile-server/tags)
 
-This container allows you to easily set up an OpenStreetMap PNG tile server given a `.osm.pbf` file. It is based on the [latest Ubuntu 18.04 LTS guide](https://switch2osm.org/serving-tiles/manually-building-a-tile-server-18-04-lts/) from [switch2osm.org](https://switch2osm.org/) and therefore uses the default OpenStreetMap style.
+This container allows you to easily set up an OpenStreetMap PNG tile server given a `.osm.pbf` file. It is based on the [Ubuntu 24.04 LTS guide](https://switch2osm.org/serving-tiles/manually-building-a-tile-server-ubuntu-24-04-lts/) from [switch2osm.org](https://switch2osm.org/) and therefore uses the default OpenStreetMap style.
 
 ## Setting up the server
 
@@ -188,13 +188,13 @@ docker run \
     run
 ```
 
-Use the user `renderer` and the database `gis` to connect.
+Use the user `_renderd` and the database `gis` to connect.
 
 ```
-psql -h localhost -U renderer gis
+psql -h localhost -U _renderd gis
 ```
 
-The default password is `renderer`, but it can be changed using the `PGPASSWORD` environment variable:
+The default password is `_renderd`, but it can be changed using the `PGPASSWORD` environment variable:
 
 ```
 docker run \
@@ -275,12 +275,12 @@ The following table summarizes all supported environment variables, their defaul
 | `DOWNLOAD_POLY` | *(none)* | `import` | URL to download a polygon file for region-limited updates |
 | `WGET_ARGS` | *(none)* | `import` | Extra arguments passed to `wget` for downloads |
 | `FLAT_NODES` | `disabled` | `import` | Set to `enabled` to use flat-nodes mode (recommended for planet imports) |
-| `OSM2PGSQL_EXTRA_ARGS` | *(none)* | `import` | Extra arguments passed to `osm2pgsql` (e.g. `-C 4096` for cache) |
+| `OSM2PGSQL_EXTRA_ARGS` | `-C 2500` | `import` | Extra arguments passed to `osm2pgsql` (e.g. `-C 4096` for cache) |
 | `ALLOW_CORS` | `disabled` | `run` | Set to `enabled` to add the `Access-Control-Allow-Origin` header |
 | `THREADS` | `4` | both | Number of threads for importing and tile rendering |
 | `UPDATES` | `disabled` | both | Set to `enabled` to activate automatic diff updates |
 | `AUTOVACUUM` | `on` | both | PostgreSQL autovacuum setting (`on` or `off`) |
-| `PGPASSWORD` | `renderer` | both | PostgreSQL password for the `renderer` user |
+| `PGPASSWORD` | `_renderd` | both | PostgreSQL password for the `_renderd` user |
 | `NAME_LUA` | `openstreetmap-carto-flex.lua` | both | Lua transform script for the style |
 | `NAME_STYLE` | `openstreetmap-carto.style` | both | Style file to use |
 | `NAME_MML` | `project.mml` | both | MML file to render to `mapnik.xml` |

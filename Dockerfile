@@ -6,41 +6,45 @@ ENV PG_VERSION=17
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      ca-certificates gnupg lsb-release locales \
-      wget curl \
-      git-core unzip unrar postgresql-common \
-      apache2 \
-      cron \
-      dateutils \
-      fonts-hanazono \
-      fonts-noto-cjk \
-      fonts-noto-hinted \
-      fonts-noto-unhinted \
-      fonts-unifont \
-      gnupg2 \
-      gdal-bin \
-      liblua5.3-dev \
-      lua5.3 \
-      mapnik-utils \
-      npm \
-      osm2pgsql \
-      osmium-tool \
-      osmosis \
-      postgis \
-      python-is-python3 \
-      python3-mapnik \
-      python3-lxml \
-      python3-shapely \
-      python3-pip \
-      renderd \
-      sudo && \
+    ca-certificates gnupg lsb-release locales \
+    wget curl unzip bzip2 \
+    git-core postgresql-common \
+    apache2 \
+    cron \
+    dateutils \
+    fonts-hanazono \
+    fonts-noto-cjk \
+    fonts-noto-hinted \
+    fonts-noto-unhinted \
+    fonts-unifont \
+    gnupg2 \
+    gdal-bin \
+    liblua5.3-dev \
+    lua5.3 \
+    mapnik-utils \
+    npm \
+    node-carto \
+    osm2pgsql \
+    osmium-tool \
+    osmosis \
+    postgis \
+    python-is-python3 \
+    python3-mapnik \
+    python3-lxml \
+    python3-shapely \
+    python3-pip \
+    python3-psycopg2 \
+    python3-yaml \
+    renderd \
+    sudo && \
     locale-gen $LANG && update-locale LANG=$LANG && \
     /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v $PG_VERSION && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        postgresql-$PG_VERSION \
-        postgresql-$PG_VERSION-postgis-3 \
-        postgresql-$PG_VERSION-postgis-3-scripts && \
+    postgresql-$PG_VERSION \
+    postgresql-$PG_VERSION-postgis-3 \
+    postgresql-$PG_VERSION-postgis-3-scripts \
+    postgresql-contrib-$PG_VERSION && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -52,33 +56,36 @@ WORKDIR /root
 RUN git clone --branch v6.0.0 https://github.com/gravitystorm/openstreetmap-carto.git --depth 1
 
 WORKDIR /root/openstreetmap-carto
-RUN sed -i 's/^--\s*GRANT SELECT ON carto_pois TO <render user>;/GRANT SELECT ON carto_pois TO renderer;/' common-values.sql && \
+RUN sed -i 's/^--\s*GRANT SELECT ON carto_pois TO <render user>;/GRANT SELECT ON carto_pois TO _renderd;/' common-values.sql && \
     rm -rf .git
 
 ###########################################################################################################
 
 FROM compiler-common AS compiler-helper-script
 
-WORKDIR /home/renderer/src
+WORKDIR /home/_renderd/src
 RUN git clone https://github.com/zverik/regional --depth 1
 
-WORKDIR /home/renderer/src/regional
+WORKDIR /home/_renderd/src/regional
 RUN rm -rf .git \
-  && chmod u+x trim_osc.py
+    && chmod u+x trim_osc.py
 
 ###########################################################################################################
 
 FROM compiler-common
 
 # Based on
-# https://switch2osm.org/serving-tiles/manually-building-a-tile-server-18-04-lts/
+# https://switch2osm.org/serving-tiles/manually-building-a-tile-server-ubuntu-24-04-lts/
 ENV AUTOVACUUM=on
 ENV UPDATES=disabled
 ENV REPLICATION_URL=https://planet.openstreetmap.org/replication/hour/
 ENV MAX_INTERVAL_SECONDS=3600
+ENV OSM2PGSQL_EXTRA_ARGS="-C 2500"
 
 RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone && \
-    adduser --disabled-password --gecos "" renderer
+    usermod -d /home/_renderd -s /bin/bash _renderd && \
+    mkdir -p /home/_renderd && \
+    chown _renderd: /home/_renderd
 
 # Get Noto Emoji Regular font, despite it being deprecated by Google
 COPY NotoEmoji-Regular.ttf /usr/share/fonts/
@@ -88,14 +95,9 @@ COPY unifont-Medium.ttf /usr/share/fonts/
 
 # Install python libraries
 RUN pip3 install --break-system-packages --no-cache-dir \
-      requests \
-      psycopg2 \
-      pyyaml \
-      colormath \
-      numpy
-
-# Install carto for stylesheet
-RUN npm install -g carto@1.2.0 && npm cache clean --force
+    requests \
+    colormath \
+    numpy
 
 # Configure Apache
 RUN echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" >> /etc/apache2/conf-available/mod_tile.conf && \
@@ -124,8 +126,8 @@ COPY openstreetmap-tiles-update-expire.sh /usr/bin/
 RUN chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
     mkdir /var/log/tiles && \
     chmod a+rw /var/log/tiles && \
-    ln -s /home/renderer/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag && \
-    echo "* * * * *   renderer    openstreetmap-tiles-update-expire.sh\n" >> /etc/crontab
+    ln -s /home/_renderd/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag && \
+    echo "* * * * *   _renderd    openstreetmap-tiles-update-expire.sh\n" >> /etc/crontab
 
 # Configure PosgtreSQL
 COPY postgresql.custom.conf.tmpl /etc/postgresql/$PG_VERSION/main/
@@ -135,20 +137,20 @@ RUN chown -R postgres:postgres /var/lib/postgresql && \
     echo "host all all ::/0 scram-sha-256" >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf
 
 # Create volume directories
-RUN mkdir -p /run/renderd/ /data/database/ /data/style/ /home/renderer/src/ && \
-    chown -R renderer: /data/ /home/renderer/src/ /run/renderd && \
+RUN mkdir -p /run/renderd/ /data/database/ /data/style/ /home/_renderd/src/ && \
+    chown -R _renderd: /data/ /home/_renderd/src/ /run/renderd && \
     mv /var/lib/postgresql/$PG_VERSION/main/ /data/database/postgres/ && \
     mv /var/cache/renderd/tiles/ /data/tiles/ && \
-    chown -R renderer: /data/tiles && \
+    chown -R _renderd: /data/tiles && \
     ln -s /data/database/postgres /var/lib/postgresql/$PG_VERSION/main && \
-    ln -s /data/style /home/renderer/src/openstreetmap-carto && \
+    ln -s /data/style /home/_renderd/src/openstreetmap-carto && \
     ln -s /data/tiles /var/cache/renderd/tiles
 
 COPY renderd.conf /etc/renderd.conf
 
 # Install helper script
-COPY --from=compiler-helper-script /home/renderer/src/regional /home/renderer/src/regional
-COPY --from=compiler-stylesheet /root/openstreetmap-carto /home/renderer/src/openstreetmap-carto-backup
+COPY --from=compiler-helper-script /home/_renderd/src/regional /home/_renderd/src/regional
+COPY --from=compiler-stylesheet /root/openstreetmap-carto /home/_renderd/src/openstreetmap-carto-backup
 
 # Start running
 COPY run.sh /
