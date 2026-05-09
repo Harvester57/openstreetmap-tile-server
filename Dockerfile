@@ -76,6 +76,15 @@ RUN rm -rf .git \
 
 FROM compiler-common
 
+LABEL org.opencontainers.image.title="openstreetmap-tile-server" \
+    org.opencontainers.image.description="A Docker image for an OpenStreetMap PNG tile server based on the Ubuntu 24.04 LTS guide from switch2osm.org, using openstreetmap-carto as the default style." \
+    org.opencontainers.image.url="https://github.com/Harvester57/openstreetmap-tile-server" \
+    org.opencontainers.image.source="https://github.com/Harvester57/openstreetmap-tile-server" \
+    org.opencontainers.image.documentation="https://github.com/Harvester57/openstreetmap-tile-server/blob/master/README.md" \
+    org.opencontainers.image.licenses="Apache-2.0" \
+    org.opencontainers.image.authors="Alexander Overvoorde (original image), Florian Stosse (fork)" \
+    org.opencontainers.image.base.name="docker.io/library/ubuntu:24.04"
+
 # Based on
 # https://switch2osm.org/serving-tiles/manually-building-a-tile-server-ubuntu-24-04-lts/
 ENV AUTOVACUUM=on
