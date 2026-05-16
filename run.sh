@@ -111,7 +111,7 @@ if [ "$1" == "import" ]; then
 
     if [ "${UPDATES:-}" == "enabled" ] || [ "${UPDATES:-}" == "1" ]; then
         # determine and set osmosis_replication_timestamp (for consecutive updates)
-        REPLICATION_TIMESTAMP=`osmium fileinfo -g header.option.osmosis_replication_timestamp /data/region.osm.pbf`
+        REPLICATION_TIMESTAMP=$(osmium fileinfo -g header.option.osmosis_replication_timestamp /data/region.osm.pbf)
 
         # initial setup of osmosis workspace (for consecutive updates)
         sudo -E -u _renderd openstreetmap-tiles-update-expire.sh $REPLICATION_TIMESTAMP
