@@ -159,7 +159,7 @@ if [ "$1" == "import" ]; then
     # Add additional tables for OSM Carto v6.0.0 onwards
     sudo -u postgres psql -d gis -f /data/style/common-values.sql
 
-    #Import external data
+    # Import external data
     chown -R _renderd: /home/_renderd/src/ /data/style/
     if [ -f /data/style/scripts/get-external-data.py ] && [ -f /data/style/external-data.yml ]; then
         sudo -E -u _renderd python3 /data/style/scripts/get-external-data.py -c /data/style/external-data.yml -D /data/style/data
