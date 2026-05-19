@@ -2,6 +2,28 @@
 
 This container allows you to easily set up an OpenStreetMap PNG tile server given a `.osm.pbf` file. It is based on the [Ubuntu 24.04 LTS guide](https://switch2osm.org/serving-tiles/manually-building-a-tile-server-ubuntu-24-04-lts/) from [switch2osm.org](https://switch2osm.org/) and therefore uses the default OpenStreetMap style.
 
+## Functional Changes & Fork Enhancements
+
+This repository is a modernized fork starting from commit `61270b8bffa9694c32442f989e14a9f6cf1d1aa3`. The following major upgrades, performance optimizations, and backend enhancements have been introduced:
+
+*   **Ubuntu 24.04 LTS Base Upgrade**: Upgraded the container operating system to Ubuntu 24.04 LTS to align with the latest switch2osm.org manual tile server guide.
+*   **Database & Geospatial Engine Upgrades**:
+    *   Upgraded database engine to **PostgreSQL 17** (with PostGIS 3).
+    *   Upgraded default stylesheet to **OpenStreetMap Carto v6.0.0** (fully integrating auxiliary tables `common-values.sql` and `functions.sql`).
+*   **Transition to osm2pgsql Flex Output**: Migrated the data import pipeline from the legacy `-S openstreetmap-carto.style` layout to the modern **osm2pgsql flex output** (`-O flex` using `openstreetmap-carto-flex.lua`), enabling advanced rendering layout customization.
+*   **Incremental / Appending Imports**: Enhanced `run.sh` to check if the `gis` database has already been initialized. If so, the container skips full PostgreSQL setup and automatically runs `osm2pgsql` in `--append` mode instead of `--create`, enabling incremental data imports without wiping existing datasets.
+*   **Standardized Security & User Permissions**: Replaced the custom `renderer` user and folder permissions with the standard Ubuntu `_renderd` system account across all service runners, scripts, cron jobs, and database access routines.
+*   **PostgreSQL Performance Tuning**: Optimized `postgresql.custom.conf.tmpl` to handle large write sequences and heavy rendering loads:
+    *   Significantly increased database memory limits (`shared_buffers` to 2GB, `maintenance_work_mem` to 1GB, `work_mem` to 256MB).
+    *   Tuned WAL operations (`wal_level = minimal`, `max_wal_size = 10GB`, `synchronous_commit = off`, `checkpoint_timeout = 60min`).
+    *   Disabled PostgreSQL JIT (`jit = off`) to eliminate significant compilation overhead on complex geospatial queries.
+*   **Cleaned and Robust Configuration**:
+    *   Extracted the rendering configuration into a standalone, static `renderd.conf` template.
+    *   Consolidated `Dockerfile` layers to improve build caching, copying necessary font assets (`NotoEmoji-Regular.ttf` and `unifont-Medium.ttf`) locally instead of downloading them dynamically during builds.
+    *   Added standard container `HEALTHCHECK` monitoring.
+*   **Modern GitHub Actions CI/CD**: Replaced Travis CI with GitHub Actions workflows supporting automated multi-architecture (`amd64` / `arm64`) builds on native ARM runners, image provenance attestation (Sigstore Cosign), Software Bill of Materials (SBOM) generation, OpenSSF Scorecards, and deployment to `ghcr.io`.
+*   **Frontend Updates**: Upgraded the built-in Leaflet map demo to version **v1.9.4** for a cleaner and more secure default map-viewing experience.
+
 ## Setting up the server
 
 First create a Docker volume to hold the PostgreSQL database that will contain the OpenStreetMap data:
