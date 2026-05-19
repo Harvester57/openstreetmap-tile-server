@@ -1,5 +1,4 @@
 /.github/
-/.travis.yml
 /docker-compose.yml
 /LICENSE
 /Makefile

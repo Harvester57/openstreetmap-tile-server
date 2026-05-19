@@ -1,6 +1,6 @@
 # Agent Onboarding Guide & System Overview
 
-This repository builds the `overv/openstreetmap-tile-server` Docker image, which hosts an OpenStreetMap PNG tile server based on the **Ubuntu 24.04 LTS switch2osm guide**. It runs PostgreSQL, PostGIS, Apache2 (with `mod_tile`), `renderd`, and the `openstreetmap-carto` stylesheet.
+This repository builds the `ghcr.io/harvester57/openstreetmap-tile-server` Docker image, which hosts an OpenStreetMap PNG tile server based on the **Ubuntu 24.04 LTS switch2osm guide**. It runs PostgreSQL, PostGIS, Apache2 (with `mod_tile`), `renderd`, and the `openstreetmap-carto` stylesheet.
 
 ---
 

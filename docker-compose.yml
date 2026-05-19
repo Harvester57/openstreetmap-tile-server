@@ -2,7 +2,7 @@ version: '3'
 
 services:
   map:
-    image: overv/openstreetmap-tile-server
+    image: ghcr.io/harvester57/openstreetmap-tile-server:master
     volumes:
       - osm-data:/data/database/
     ports:
