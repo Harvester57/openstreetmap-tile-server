@@ -84,6 +84,7 @@ services:
       - osm-style:/data/style
       - osm-tiles:/var/cache/renderd/tiles
       - osm-import-data:/data/database
+      - renderd-socket:/run/renderd
     depends_on:
       db:
         condition: service_healthy

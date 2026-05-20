@@ -71,11 +71,12 @@ RUN apt-get update && \
 
 # Copy import script and make executable
 COPY scripts/import.sh /import.sh
-RUN chmod +x /import.sh
+RUN sed -i 's/\r$//' /import.sh && chmod +x /import.sh
 
 # Copy updater script as it's needed for replication metadata initialization
 COPY openstreetmap-tiles-update-expire.sh /usr/bin/
-RUN chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
+RUN sed -i 's/\r$//' /usr/bin/openstreetmap-tiles-update-expire.sh && \
+    chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
     mkdir -p /var/log/tiles && \
     chmod a+rw /var/log/tiles && \
     ln -sf /home/_renderd/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag
@@ -98,14 +99,6 @@ FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-# Configure locales and essential libraries
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    ca-certificates locales wget unzip && \
-    locale-gen $LANG && update-locale LANG=$LANG && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
 
 # Setup rendering system user '_renderd'
 RUN usermod -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || useradd -m -d /home/_renderd -s /bin/bash _renderd
@@ -142,7 +135,7 @@ RUN mkdir -p /run/renderd/ /data/style/ /var/cache/renderd/tiles/ /home/_renderd
     chown -R _renderd: /data/ /home/_renderd/src/ /run/renderd /var/cache/renderd/tiles/
 
 COPY scripts/renderd-entrypoint.sh /renderd-entrypoint.sh
-RUN chmod +x /renderd-entrypoint.sh
+RUN sed -i 's/\r$//' /renderd-entrypoint.sh && chmod +x /renderd-entrypoint.sh
 
 ENTRYPOINT ["/renderd-entrypoint.sh"]
 
@@ -203,7 +196,7 @@ RUN mkdir -p /run/renderd/ /var/cache/renderd/tiles/ && \
     chown -R _renderd: /run/renderd /var/cache/renderd/tiles/
 
 COPY scripts/web-entrypoint.sh /web-entrypoint.sh
-RUN chmod +x /web-entrypoint.sh
+RUN sed -i 's/\r$//' /web-entrypoint.sh && chmod +x /web-entrypoint.sh
 
 ENTRYPOINT ["/web-entrypoint.sh"]
 EXPOSE 80
@@ -230,13 +223,15 @@ RUN apt-get update && \
     python3-shapely \
     python3-colormath \
     python3-numpy \
-    dateutils && \
+    dateutils \
+    renderd && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy update scripts
 COPY openstreetmap-tiles-update-expire.sh /usr/bin/
-RUN chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
+RUN sed -i 's/\r$//' /usr/bin/openstreetmap-tiles-update-expire.sh && \
+    chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
     ln -sf /home/_renderd/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag
 
 # Copy helper scripts
@@ -247,6 +242,6 @@ RUN mkdir -p /var/log/tiles /data/database /var/cache/renderd/tiles && \
     chown -R _renderd: /var/log/tiles /data/database /var/cache/renderd/tiles
 
 COPY scripts/updater-entrypoint.sh /updater-entrypoint.sh
-RUN chmod +x /updater-entrypoint.sh
+RUN sed -i 's/\r$//' /updater-entrypoint.sh && chmod +x /updater-entrypoint.sh
 
 ENTRYPOINT ["/updater-entrypoint.sh"]
