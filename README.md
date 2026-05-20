@@ -8,7 +8,7 @@ This repository is a modernized fork starting from commit `61270b8bffa9694c32442
 
 *   **Ubuntu 24.04 LTS Base Upgrade**: Upgraded the container operating system to Ubuntu 24.04 LTS to align with the latest switch2osm.org manual tile server guide.
 *   **Database & Geospatial Engine Upgrades**:
-    *   Upgraded database engine to **PostgreSQL 17** (with PostGIS 3).
+    *   Upgraded database engine to **PostgreSQL 18** (with PostGIS 3.6).
     *   Upgraded default stylesheet to **OpenStreetMap Carto v6.0.0** (fully integrating auxiliary tables `common-values.sql` and `functions.sql`).
 *   **Transition to osm2pgsql Flex Output**: Migrated the data import pipeline from the legacy `-S openstreetmap-carto.style` layout to the modern **osm2pgsql flex output** (`-O flex` using `openstreetmap-carto-flex.lua`), enabling advanced rendering layout customization.
 *   **Incremental / Appending Imports**: Enhanced `run.sh` to check if the `gis` database has already been initialized. If so, the container skips full PostgreSQL setup and automatically runs `osm2pgsql` in `--append` mode instead of `--create`, enabling incremental data imports without wiping existing datasets.

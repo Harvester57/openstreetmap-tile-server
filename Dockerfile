@@ -1,120 +1,192 @@
-FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b AS compiler-common
+# ==============================================================================
+# Helper Stage: PostgreSQL DB Client Base (ONLY for Importer and Updater)
+# ==============================================================================
+FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b AS base-db-client
+
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
-# PostgreSQL database version to install
-ENV PG_VERSION=17
+ENV PG_VERSION=18
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Install common utilities, configure locales, and register PostgreSQL client APT repositories
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    ca-certificates gnupg lsb-release locales \
-    wget curl unzip bzip2 \
-    git-core postgresql-common \
-    apache2 \
-    cron \
-    dateutils \
+    ca-certificates gnupg lsb-release locales wget curl unzip bzip2 git-core postgresql-common gnupg2 sudo && \
+    locale-gen $LANG && update-locale LANG=$LANG && \
+    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v $PG_VERSION && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Setup rendering system user '_renderd'
+RUN usermod -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || useradd -m -d /home/_renderd -s /bin/bash _renderd
+
+
+# ==============================================================================
+# Helper Stage: Stylesheet Clone & Pruning (Directly from clean Ubuntu)
+# ==============================================================================
+FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b AS compiler-stylesheet
+RUN apt-get update && apt-get install -y --no-install-recommends git-core ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /root
+RUN git clone --branch v6.0.0 https://github.com/openstreetmap-carto/openstreetmap-carto.git --depth 1
+WORKDIR /root/openstreetmap-carto
+RUN sed -i 's/^--\s*GRANT SELECT ON carto_pois TO <render user>;/GRANT SELECT ON carto_pois TO _renderd;/' common-values.sql && \
+    rm -rf .git
+
+
+# ==============================================================================
+# Helper Stage: Regional trim script Clone & Pruning (Directly from clean Ubuntu)
+# ==============================================================================
+FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b AS compiler-helper-script
+RUN apt-get update && apt-get install -y --no-install-recommends git-core ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /home/_renderd/src
+RUN git clone https://github.com/zverik/regional --depth 1
+WORKDIR /home/_renderd/src/regional
+RUN rm -rf .git && chmod u+x trim_osc.py
+
+
+# ==============================================================================
+# 1. IMPORTER MICROSERVICE TARGET
+# ==============================================================================
+FROM base-db-client AS importer
+
+# Install ONLY packages required for style compilation and DB import
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    osm2pgsql \
+    osmium-tool \
+    osmosis \
+    postgis \
+    gdal-bin \
+    postgresql-client-$PG_VERSION \
+    python-is-python3 \
+    python3 \
+    python3-requests \
+    python3-yaml \
+    python3-psycopg2 \
+    node-carto \
+    liblua5.3-dev \
+    lua5.3 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy import script and make executable
+COPY scripts/import.sh /import.sh
+RUN chmod +x /import.sh
+
+# Copy updater script as it's needed for replication metadata initialization
+COPY openstreetmap-tiles-update-expire.sh /usr/bin/
+RUN chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
+    mkdir -p /var/log/tiles && \
+    chmod a+rw /var/log/tiles && \
+    ln -sf /home/_renderd/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag
+
+# Preload carto stylesheets from compiler stage
+COPY --from=compiler-stylesheet /root/openstreetmap-carto /home/_renderd/src/openstreetmap-carto-backup
+
+# Setup standard volume directories
+RUN mkdir -p /data/database/ /data/style/ && \
+    chown -R _renderd: /data/
+
+ENTRYPOINT ["/import.sh"]
+
+
+# ==============================================================================
+# 2. RENDERER MICROSERVICE TARGET (No PG Repositories or DB CLI Packages!)
+# ==============================================================================
+FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b AS renderer
+
+ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Configure locales and essential libraries
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates locales wget unzip && \
+    locale-gen $LANG && update-locale LANG=$LANG && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Setup rendering system user '_renderd'
+RUN usermod -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || useradd -m -d /home/_renderd -s /bin/bash _renderd
+
+# Copy common typography fallback fonts to base
+COPY NotoEmoji-Regular.ttf /usr/share/fonts/
+COPY unifont-Medium.ttf /usr/share/fonts/
+
+# Install ONLY rendering components, Mapnik libraries, and full GIS fonts
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    renderd \
+    python-is-python3 \
+    python3-mapnik \
+    mapnik-utils \
+    node-carto \
+    gdal-bin \
     fonts-hanazono \
     fonts-noto-cjk \
     fonts-noto-hinted \
     fonts-noto-unhinted \
     fonts-unifont \
-    gnupg2 \
-    gdal-bin \
-    liblua5.3-dev \
-    lua5.3 \
-    mapnik-utils \
-    node-carto \
-    osm2pgsql \
-    osmium-tool \
-    osmosis \
-    postgis \
-    python-is-python3 \
-    python3-mapnik \
-    python3-lxml \
-    python3-shapely \
-    python3-pip \
-    python3-psycopg2 \
-    python3-yaml \
-    python3-colormath \
-    python3-numpy \
-    python3-requests \
-    renderd \
     sudo && \
-    locale-gen $LANG && update-locale LANG=$LANG && \
-    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v $PG_VERSION && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-    postgresql-$PG_VERSION \
-    postgresql-$PG_VERSION-postgis-3 \
-    postgresql-$PG_VERSION-postgis-3-scripts \
-    postgresql-contrib-$PG_VERSION && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-###########################################################################################################
+COPY renderd.conf /etc/renderd.conf
 
-FROM compiler-common AS compiler-stylesheet
+# Preload carto stylesheets
+COPY --from=compiler-stylesheet /root/openstreetmap-carto /home/_renderd/src/openstreetmap-carto-backup
 
-WORKDIR /root
-RUN git clone --branch v6.0.0 https://github.com/openstreetmap-carto/openstreetmap-carto.git --depth 1
+# Setup directories for style configurations, sockets, and tiles
+RUN mkdir -p /run/renderd/ /data/style/ /var/cache/renderd/tiles/ /home/_renderd/src/ && \
+    chown -R _renderd: /data/ /home/_renderd/src/ /run/renderd /var/cache/renderd/tiles/
 
-WORKDIR /root/openstreetmap-carto
-RUN sed -i 's/^--\s*GRANT SELECT ON carto_pois TO <render user>;/GRANT SELECT ON carto_pois TO _renderd;/' common-values.sql && \
-    rm -rf .git
+COPY scripts/renderd-entrypoint.sh /renderd-entrypoint.sh
+RUN chmod +x /renderd-entrypoint.sh
 
-###########################################################################################################
+ENTRYPOINT ["/renderd-entrypoint.sh"]
 
-FROM compiler-common AS compiler-helper-script
 
-WORKDIR /home/_renderd/src
-RUN git clone https://github.com/zverik/regional --depth 1
+# ==============================================================================
+# 3. WEB SERVER MICROSERVICE TARGET (Strictly isolated, no PG Client or Mapnik!)
+# ==============================================================================
+FROM ubuntu:24.04@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b AS webserver
 
-WORKDIR /home/_renderd/src/regional
-RUN rm -rf .git \
-    && chmod u+x trim_osc.py
+ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
 
-###########################################################################################################
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-FROM compiler-common
+# Configure locales and base packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates locales wget unzip && \
+    locale-gen $LANG && update-locale LANG=$LANG && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-LABEL org.opencontainers.image.title="openstreetmap-tile-server" \
-    org.opencontainers.image.description="A Docker image for an OpenStreetMap PNG tile server based on the Ubuntu 24.04 LTS guide from switch2osm.org, using openstreetmap-carto as the default style." \
-    org.opencontainers.image.url="https://github.com/Harvester57/openstreetmap-tile-server" \
-    org.opencontainers.image.source="https://github.com/Harvester57/openstreetmap-tile-server" \
-    org.opencontainers.image.documentation="https://github.com/Harvester57/openstreetmap-tile-server/blob/master/README.md" \
-    org.opencontainers.image.licenses="Apache-2.0" \
-    org.opencontainers.image.authors="Alexander Overvoorde (original image), Florian Stosse (fork)" \
-    org.opencontainers.image.base.name="docker.io/library/ubuntu:24.04"
+# Setup rendering system user '_renderd' for permissions
+RUN usermod -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || useradd -m -d /home/_renderd -s /bin/bash _renderd
 
-# Based on
-# https://switch2osm.org/serving-tiles/manually-building-a-tile-server-ubuntu-24-04-lts/
-ENV AUTOVACUUM=on
-ENV UPDATES=disabled
-ENV REPLICATION_URL=https://planet.openstreetmap.org/replication/hour/
-ENV MAX_INTERVAL_SECONDS=3600
-ENV OSM2PGSQL_EXTRA_ARGS="-C 2500"
+# Install ONLY Apache web server and the mod_tile Apache modules (part of renderd pkg)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    apache2 \
+    renderd && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone && \
-    usermod -d /home/_renderd -s /bin/bash _renderd && \
-    mkdir -p /home/_renderd && \
-    chown _renderd: /home/_renderd
-
-# Get Noto Emoji Regular font, despite it being deprecated by Google
-COPY NotoEmoji-Regular.ttf /usr/share/fonts/
-
-# For some reason this one is missing in the default packages
-COPY unifont-Medium.ttf /usr/share/fonts/
-
-# Configure Apache
+# Configure Apache Modules
 RUN echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" >> /etc/apache2/conf-available/mod_tile.conf && \
     echo "LoadModule headers_module /usr/lib/apache2/modules/mod_headers.so" >> /etc/apache2/conf-available/mod_headers.conf && \
     a2enconf mod_tile && a2enconf mod_headers
 
 COPY apache.conf /etc/apache2/sites-available/000-default.conf
+COPY renderd.conf /etc/renderd.conf
 
 RUN ln -sf /dev/stdout /var/log/apache2/access.log && \
     ln -sf /dev/stderr /var/log/apache2/error.log
 
-# leaflet
+# Configure Leaflet map frontend
 COPY leaflet-demo.html /var/www/html/index.html
 WORKDIR /var/www/html/
 RUN wget https://github.com/Leaflet/Leaflet/releases/download/v1.9.4/leaflet.zip && \
@@ -123,43 +195,58 @@ RUN wget https://github.com/Leaflet/Leaflet/releases/download/v1.9.4/leaflet.zip
     rmdir dist && \
     rm leaflet.zip
 
-# Icon
+# Get the OpenStreetMap favicon
 RUN wget -O /var/www/html/favicon.ico https://www.openstreetmap.org/favicon.ico
+
+# Setup paths for communication with the renderer service
+RUN mkdir -p /run/renderd/ /var/cache/renderd/tiles/ && \
+    chown -R _renderd: /run/renderd /var/cache/renderd/tiles/
+
+COPY scripts/web-entrypoint.sh /web-entrypoint.sh
+RUN chmod +x /web-entrypoint.sh
+
+ENTRYPOINT ["/web-entrypoint.sh"]
+EXPOSE 80
+
+
+# ==============================================================================
+# 4. UPDATER MICROSERVICE TARGET
+# ==============================================================================
+FROM base-db-client AS updater
+
+# Install ONLY incremental diff tools and replication CLI scripts
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    osmosis \
+    osmium-tool \
+    osm2pgsql \
+    postgresql-client-$PG_VERSION \
+    python-is-python3 \
+    python3 \
+    python3-requests \
+    python3-yaml \
+    python3-psycopg2 \
+    python3-lxml \
+    python3-shapely \
+    python3-colormath \
+    python3-numpy \
+    dateutils && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy update scripts
 COPY openstreetmap-tiles-update-expire.sh /usr/bin/
 RUN chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
-    mkdir /var/log/tiles && \
-    chmod a+rw /var/log/tiles && \
-    ln -s /home/_renderd/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag && \
-    echo "* * * * *   _renderd    openstreetmap-tiles-update-expire.sh\n" >> /etc/crontab
+    ln -sf /home/_renderd/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag
 
-# Configure PosgtreSQL
-COPY postgresql.custom.conf.tmpl /etc/postgresql/$PG_VERSION/main/
-RUN chown -R postgres:postgres /var/lib/postgresql && \
-    chown postgres:postgres /etc/postgresql/$PG_VERSION/main/postgresql.custom.conf.tmpl && \
-    echo "host all all 0.0.0.0/0 scram-sha-256" >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf && \
-    echo "host all all ::/0 scram-sha-256" >> /etc/postgresql/$PG_VERSION/main/pg_hba.conf
-
-# Create volume directories
-RUN mkdir -p /run/renderd/ /data/database/ /data/style/ /home/_renderd/src/ && \
-    chown -R _renderd: /data/ /home/_renderd/src/ /run/renderd && \
-    mv /var/lib/postgresql/$PG_VERSION/main/ /data/database/postgres/ && \
-    mv /var/cache/renderd/tiles/ /data/tiles/ && \
-    chown -R _renderd: /data/tiles && \
-    ln -s /data/database/postgres /var/lib/postgresql/$PG_VERSION/main && \
-    ln -s /data/style /home/_renderd/src/openstreetmap-carto && \
-    ln -s /data/tiles /var/cache/renderd/tiles
-
-COPY renderd.conf /etc/renderd.conf
-
-# Install helper script
+# Copy helper scripts
 COPY --from=compiler-helper-script /home/_renderd/src/regional /home/_renderd/src/regional
-COPY --from=compiler-stylesheet /root/openstreetmap-carto /home/_renderd/src/openstreetmap-carto-backup
 
-# Start running
-COPY run.sh /
-HEALTHCHECK CMD curl --fail http://localhost/ || exit 1
-ENTRYPOINT ["/run.sh"]
-CMD []
-EXPOSE 80 5432
+# Setup storage and log directories
+RUN mkdir -p /var/log/tiles /data/database /var/cache/renderd/tiles && \
+    chown -R _renderd: /var/log/tiles /data/database /var/cache/renderd/tiles
+
+COPY scripts/updater-entrypoint.sh /updater-entrypoint.sh
+RUN chmod +x /updater-entrypoint.sh
+
+ENTRYPOINT ["/updater-entrypoint.sh"]

@@ -6,7 +6,7 @@ This repository builds the `ghcr.io/harvester57/openstreetmap-tile-server` Docke
 
 ## Key Components & Technologies
 - **OS**: Ubuntu 24.04 LTS (Docker base)
-- **Database**: PostgreSQL 17 + PostGIS 3 + `osm2pgsql` (for data import)
+- **Database**: PostgreSQL 18 + PostGIS 3.6 + `osm2pgsql` (for data import)
 - **Rendering**: Mapnik 3.0 + `renderd` (multi-threaded PNG rendering daemon)
 - **Server**: Apache2 (with `mod_tile` module pointing to `/tile/` and local Unix socket `/run/renderd/renderd.sock`)
 - **Stylesheet**: `openstreetmap-carto` (uses CartoCSS, compiled at runtime to `mapnik.xml`)
