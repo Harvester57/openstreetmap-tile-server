@@ -77,15 +77,13 @@ jobs:
         cache-to   : type=gha,scope=${{ github.workflow }}:${{ env.PLATFORM }},mode=max
     -
       name: Import Luxembourg
-      run : |
-        docker volume create ${VOLUME}
-        docker run --rm --shm-size=4GB -v ${VOLUME}:${MOUNT} -e UPDATES=enabled ${{ env.IMAGE }}:testbuild-${{ matrix.arch }} import
+      run : docker compose run --rm import
+
     -
       name: Start server
       run : |
-        docker run --shm-size=4GB -v ${VOLUME}:${MOUNT} -e UPDATES=enabled -p 80:80 -d --name ${CONTAINER} ${{ env.IMAGE }}:testbuild-${{ matrix.arch }} run
-        sleep 30
-        docker logs ${CONTAINER}
+        docker compose up -d web updater
+        docker compose logs
     -
       name: Download tiles
       run : |
