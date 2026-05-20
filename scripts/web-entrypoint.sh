@@ -18,7 +18,8 @@ fi
 # 3. Ensure both renderd (under _renderd user) and Apache (under www-data user)
 # can read/write to the shared socket and tile directories
 mkdir -p /run/renderd/ /var/cache/renderd/tiles/
-chmod -R 777 /run/renderd/ /var/cache/renderd/tiles/
+chown -R _renderd:_renderd /run/renderd/ /var/cache/renderd/tiles/
+chmod -R 775 /run/renderd/ /var/cache/renderd/tiles/
 
 # 4. Start Apache in the foreground
 echo "INFO: Starting Apache HTTP server..."

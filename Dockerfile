@@ -18,7 +18,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Setup rendering system user '_renderd'
-RUN usermod -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || useradd -m -d /home/_renderd -s /bin/bash _renderd
+RUN (groupadd -g 1001 _renderd 2>/dev/null || true) && \
+    (useradd -u 1001 -g 1001 -m -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || usermod -d /home/_renderd -s /bin/bash _renderd)
 
 
 # ==============================================================================
@@ -102,7 +103,8 @@ ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Setup rendering system user '_renderd'
-RUN usermod -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || useradd -m -d /home/_renderd -s /bin/bash _renderd
+RUN (groupadd -g 1001 _renderd 2>/dev/null || true) && \
+    (useradd -u 1001 -g 1001 -m -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || usermod -d /home/_renderd -s /bin/bash _renderd)
 
 # Copy common typography fallback fonts to base
 COPY NotoEmoji-Regular.ttf /usr/share/fonts/
@@ -150,6 +152,10 @@ ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Setup rendering system user '_renderd' for permissions
+RUN (groupadd -g 1001 _renderd 2>/dev/null || true) && \
+    (useradd -u 1001 -g 1001 -m -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || usermod -d /home/_renderd -s /bin/bash _renderd)
+
 # Configure locales and base packages
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -159,8 +165,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Setup rendering system user '_renderd' for permissions
-RUN usermod -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || useradd -m -d /home/_renderd -s /bin/bash _renderd
+# Add www-data to the _renderd group
+RUN usermod -a -G _renderd www-data
 
 # Configure Apache Modules
 RUN echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" >> /etc/apache2/conf-available/mod_tile.conf && \
