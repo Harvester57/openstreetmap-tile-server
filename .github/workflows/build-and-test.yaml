@@ -37,14 +37,6 @@ jobs:
         - arch: arm64
           runner: ubuntu-24.04-arm
           variant: v8
-        - service: import
-          target: importer
-        - service: renderd
-          target: renderer
-        - service: web
-          target: webserver
-        - service: updater
-          target: updater
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -74,12 +66,11 @@ jobs:
         pull       : true
         load       : true
         platforms  : ${{ env.PLATFORM }}
-        context    : .
-        file       : ./Dockerfile
-        target     : ${{ matrix.target }}
+        context    : ./docker/${{ matrix.service }}
+        file       : ./docker/${{ matrix.service }}/Dockerfile
         tags       : openstreetmap-tile-server-${{ matrix.service }}:latest
-        cache-from : type=gha,scope=${{ github.workflow }}:${{ matrix.target }}-${{ env.PLATFORM }}
-        cache-to   : type=gha,scope=${{ github.workflow }}:${{ matrix.target }}-${{ env.PLATFORM }},mode=max
+        cache-from : type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-${{ env.PLATFORM }}
+        cache-to   : type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-${{ env.PLATFORM }},mode=max
 
   test:
     runs-on: ubuntu-24.04
@@ -109,42 +100,38 @@ jobs:
       name: Load Importer from Cache
       uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
       with:
-        context    : .
-        file       : ./Dockerfile
-        target     : importer
+        context    : ./docker/import
+        file       : ./docker/import/Dockerfile
         load       : true
         tags       : openstreetmap-tile-server-import:latest
-        cache-from : type=gha,scope=${{ github.workflow }}:importer-linux/amd64
+        cache-from : type=gha,scope=${{ github.workflow }}:import-linux/amd64
 
     -
       name: Load Renderer from Cache
       uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
       with:
-        context    : .
-        file       : ./Dockerfile
-        target     : renderer
+        context    : ./docker/renderd
+        file       : ./docker/renderd/Dockerfile
         load       : true
         tags       : openstreetmap-tile-server-renderd:latest
-        cache-from : type=gha,scope=${{ github.workflow }}:renderer-linux/amd64
+        cache-from : type=gha,scope=${{ github.workflow }}:renderd-linux/amd64
 
     -
       name: Load Webserver from Cache
       uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
       with:
-        context    : .
-        file       : ./Dockerfile
-        target     : webserver
+        context    : ./docker/web
+        file       : ./docker/web/Dockerfile
         load       : true
         tags       : openstreetmap-tile-server-web:latest
-        cache-from : type=gha,scope=${{ github.workflow }}:webserver-linux/amd64
+        cache-from : type=gha,scope=${{ github.workflow }}:web-linux/amd64
 
     -
       name: Load Updater from Cache
       uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
       with:
-        context    : .
-        file       : ./Dockerfile
-        target     : updater
+        context    : ./docker/updater
+        file       : ./docker/updater/Dockerfile
         load       : true
         tags       : openstreetmap-tile-server-updater:latest
         cache-from : type=gha,scope=${{ github.workflow }}:updater-linux/amd64
@@ -210,15 +197,6 @@ jobs:
     strategy:
       matrix:
         service: [import, renderd, web, updater]
-        include:
-          - service: import
-            target: importer
-          - service: renderd
-            target: renderer
-          - service: web
-            target: webserver
-          - service: updater
-            target: updater
     steps:
     - name: Harden the runner (Audit all outbound calls)
       uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
@@ -273,14 +251,13 @@ jobs:
         push       : true
         provenance: mode=max
         platforms  : linux/amd64,linux/arm64/v8
-        context    : .
-        file       : ./Dockerfile
-        target     : ${{ matrix.target }}
+        context    : ./docker/${{ matrix.service }}
+        file       : ./docker/${{ matrix.service }}/Dockerfile
         tags       : ${{ steps.meta.outputs.tags }}
         labels     : ${{ steps.meta.outputs.labels }}
         cache-from: |
-          type=gha,scope=${{ github.workflow }}:${{ matrix.target }}-linux/amd64
-          type=gha,scope=${{ github.workflow }}:${{ matrix.target }}-linux/arm64/v8
+          type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-linux/amd64
+          type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-linux/arm64/v8
         cache-to: type=gha,mode=max
 
     # Sign the resulting Docker image digest except on PRs.
@@ -316,15 +293,6 @@ jobs:
     strategy:
       matrix:
         service: [import, renderd, web, updater]
-        include:
-          - service: import
-            target: importer
-          - service: renderd
-            target: renderer
-          - service: web
-            target: webserver
-          - service: updater
-            target: updater
     steps:
       - 
         name: Harden the runner (Audit all outbound calls)
@@ -341,10 +309,11 @@ jobs:
         with:
           push: false
           load: true
-          target: ${{ matrix.target }}
+          context: ./docker/${{ matrix.service }}
+          file: ./docker/${{ matrix.service }}/Dockerfile
           tags: localbuild/testimage-${{ matrix.service }}:latest
           platforms: linux/amd64
-          cache-from: type=gha,scope=${{ github.workflow }}:${{ matrix.target }}-linux/amd64
+          cache-from: type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-linux/amd64
       -
         name: Generate SBOM and upload dependency results
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0

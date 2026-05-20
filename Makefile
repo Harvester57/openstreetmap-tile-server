@@ -1,4 +1,4 @@
-.PHONY: build import start stop logs status clean
+.PHONY: build import start start-with-updates stop logs status clean
 
 # Build all microservices targets concurrently
 build:
@@ -8,8 +8,12 @@ build:
 import:
 	docker compose run --rm import
 
-# Start the serving infrastructure (web, renderd, db, and optionally updater)
+# Start the serving infrastructure (web, renderd, db)
 start:
+	docker compose up -d web
+
+# Start the serving infrastructure with updates (web, renderd, db, updater)
+start-with-updates:
 	docker compose up -d web updater
 
 # View logs from all running microservices

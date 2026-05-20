@@ -1,6 +1,8 @@
 services:
   db:
-    image: postgis/postgis:18-3.6
+    image: openstreetmap-tile-server-db:latest
+    build:
+      context: ./docker/db
     environment:
       POSTGRES_DB: gis
       POSTGRES_USER: postgres
@@ -8,9 +10,9 @@ services:
       AUTOVACUUM: ${AUTOVACUUM:-on}
     volumes:
       - osm-db-data:/var/lib/postgresql
-      - ./docker/db/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-      - ./docker/db/10-optimize-db.sh:/docker-entrypoint-initdb.d/10-optimize-db.sh
-      - ./postgresql.custom.conf.tmpl:/etc/postgresql/postgresql.custom.conf.tmpl
+      - ./docker/db/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./docker/db/10-optimize-db.sh:/docker-entrypoint-initdb.d/10-optimize-db.sh:ro
+      - ./docker/db/postgresql.custom.conf.tmpl:/etc/postgresql/postgresql.custom.conf.tmpl:ro
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d gis" ]
       interval: 10s
@@ -21,8 +23,7 @@ services:
   import:
     image: openstreetmap-tile-server-import:latest
     build:
-      context: .
-      target: importer
+      context: ./docker/import
     environment:
       PGHOST: db
       PGUSER: postgres
@@ -30,7 +31,6 @@ services:
       DOWNLOAD_PBF: ${DOWNLOAD_PBF:-}
       THREADS: ${THREADS:-4}
       FLAT_NODES: ${FLAT_NODES:-disabled}
-      UPDATES: ${UPDATES:-disabled}
     volumes:
       - osm-style:/data/style
       - osm-import-data:/data/database
@@ -43,8 +43,7 @@ services:
   renderd:
     image: openstreetmap-tile-server-renderd:latest
     build:
-      context: .
-      target: renderer
+      context: ./docker/renderd
     environment:
       PGHOST: db
       PGUSER: _renderd
@@ -61,8 +60,7 @@ services:
   web:
     image: openstreetmap-tile-server-web:latest
     build:
-      context: .
-      target: webserver
+      context: ./docker/web
     ports:
       - "${PORT:-8080}:80"
     environment:
@@ -76,13 +74,11 @@ services:
   updater:
     image: openstreetmap-tile-server-updater:latest
     build:
-      context: .
-      target: updater
+      context: ./docker/updater
     environment:
       PGHOST: db
       PGUSER: _renderd
       PGPASSWORD: ${PGPASSWORD:-_renderd}
-      UPDATES: ${UPDATES:-enabled}
       THREADS: ${THREADS:-4}
     volumes:
       - osm-style:/data/style

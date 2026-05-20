@@ -83,15 +83,6 @@ if psql -h "$PGHOST" -U "$PGUSER" -d "$PGDB" -c "SELECT 1 FROM pg_tables WHERE t
     INITIALIZE="1"
 fi
 
-# Setup osmosis replication timestamp if updates are enabled and we are doing a fresh import
-if [ "${UPDATES:-}" == "enabled" ] || [ "${UPDATES:-}" == "1" ]; then
-    if [ "$INITIALIZE" == "0" ]; then
-        echo "INFO: Initializing osmosis replication workspace..."
-        REPLICATION_TIMESTAMP=$(osmium fileinfo -g header.option.osmosis_replication_timestamp /data/region.osm.pbf)
-        openstreetmap-tiles-update-expire.sh "$REPLICATION_TIMESTAMP"
-    fi
-fi
-
 # 6. Configure flat-nodes if enabled
 EXTRA_ARGS="${OSM2PGSQL_EXTRA_ARGS:-}"
 if [ "${FLAT_NODES:-}" == "enabled" ] || [ "${FLAT_NODES:-}" == "1" ]; then

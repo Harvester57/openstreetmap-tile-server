@@ -16,12 +16,6 @@ export MAX_INTERVAL_SECONDS="${MAX_INTERVAL_SECONDS:-3600}"
 mkdir -p /var/log/tiles /data/database
 chown -R _renderd: /var/log/tiles /data/database /var/cache/renderd/tiles
 
-# If updates are not enabled, sleep indefinitely so the container stays alive but idle
-if [ "$UPDATES" != "enabled" ] && [ "$UPDATES" != "1" ]; then
-    echo "INFO: Updates are disabled. Sleeping indefinitely..."
-    exec sleep infinity
-fi
-
 # Automatically initialize osmosis workspace if not present
 if [ ! -f /data/database/.osmosis/state.txt ]; then
     echo "INFO: Osmosis workspace not found at /data/database/.osmosis/state.txt. Initializing..."
@@ -62,5 +56,5 @@ while true; do
     else
         echo "WARNING: Update check returned non-zero code. Possibly no new replication state, will retry."
     fi
-    sleep 60
+    sleep "$MAX_INTERVAL_SECONDS"
 done
