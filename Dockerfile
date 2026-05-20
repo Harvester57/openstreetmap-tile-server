@@ -64,6 +64,7 @@ RUN apt-get update && \
     python3-yaml \
     python3-psycopg2 \
     node-carto \
+    libapache2-mod-tile \
     liblua5.3-dev \
     lua5.3 && \
     apt-get clean && \
@@ -79,7 +80,7 @@ RUN sed -i 's/\r$//' /usr/bin/openstreetmap-tiles-update-expire.sh && \
     chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
     mkdir -p /var/log/tiles && \
     chmod a+rw /var/log/tiles && \
-    ln -sf /home/_renderd/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag
+    ln -sf /usr/share/doc/libapache2-mod-tile/examples/osmosis-db_replag /usr/bin/osmosis-db_replag
 
 # Preload carto stylesheets from compiler stage
 COPY --from=compiler-stylesheet /root/openstreetmap-carto /home/_renderd/src/openstreetmap-carto-backup
@@ -152,21 +153,14 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # Configure locales and base packages
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    ca-certificates locales wget unzip && \
+    ca-certificates locales wget unzip \
+    apache2 renderd && \
     locale-gen $LANG && update-locale LANG=$LANG && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Setup rendering system user '_renderd' for permissions
 RUN usermod -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || useradd -m -d /home/_renderd -s /bin/bash _renderd
-
-# Install ONLY Apache web server and the mod_tile Apache modules (part of renderd pkg)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    apache2 \
-    renderd && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
 
 # Configure Apache Modules
 RUN echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" >> /etc/apache2/conf-available/mod_tile.conf && \
@@ -224,7 +218,8 @@ RUN apt-get update && \
     python3-colormath \
     python3-numpy \
     dateutils \
-    renderd && \
+    renderd \
+    libapache2-mod-tile && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -232,7 +227,7 @@ RUN apt-get update && \
 COPY openstreetmap-tiles-update-expire.sh /usr/bin/
 RUN sed -i 's/\r$//' /usr/bin/openstreetmap-tiles-update-expire.sh && \
     chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
-    ln -sf /home/_renderd/src/mod_tile/osmosis-db_replag /usr/bin/osmosis-db_replag
+    ln -sf /usr/share/doc/libapache2-mod-tile/examples/osmosis-db_replag /usr/bin/osmosis-db_replag
 
 # Copy helper scripts
 COPY --from=compiler-helper-script /home/_renderd/src/regional /home/_renderd/src/regional
