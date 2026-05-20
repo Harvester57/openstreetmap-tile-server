@@ -94,12 +94,16 @@ services:
 # Named volumes for sharing data between microservices
 volumes:
   # Dedicated volume for PostgreSQL data cluster storage
-  osm-db-data: # Volume for osm2pgsql flat nodes, replication sequence files, and polygons
+  osm-db-data:
 
-  osm-import-data: # Shared stylesheet volume containing compiled XML styles
+  # Volume for osm2pgsql flat nodes, replication sequence files, and polygons
+  osm-import-data:
 
-  osm-style: # Shared tile cache directory accessed by both Apache and renderd
+  # Shared stylesheet volume containing compiled XML styles
+  osm-style:
 
-  osm-tiles: # Shared Unix socket directory for mod_tile/renderd communication
+  # Shared tile cache directory accessed by both Apache and renderd
+  osm-tiles:
 
+  # Shared Unix socket directory for mod_tile/renderd communication
   renderd-socket:
