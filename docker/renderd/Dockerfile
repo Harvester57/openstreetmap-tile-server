@@ -27,17 +27,11 @@ COPY unifont-Medium.ttf /usr/share/fonts/
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     renderd \
-    python-is-python3 \
-    python3-mapnik \
-    mapnik-utils \
-    node-carto \
-    gdal-bin \
     fonts-hanazono \
     fonts-noto-cjk \
     fonts-noto-hinted \
     fonts-noto-unhinted \
-    fonts-unifont \
-    sudo && \
+    fonts-unifont && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
