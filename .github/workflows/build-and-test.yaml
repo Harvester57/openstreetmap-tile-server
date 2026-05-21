@@ -64,8 +64,7 @@ jobs:
       name: Build and Cache
       uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
       with:
-        pull       : true
-        load       : true
+        push       : true
         platforms  : ${{ env.PLATFORM }}
         context    : ./docker/${{ matrix.service }}
         file       : ./docker/${{ matrix.service }}/Dockerfile
@@ -103,7 +102,6 @@ jobs:
       with:
         context    : ./docker/import
         file       : ./docker/import/Dockerfile
-        load       : true
         tags       : openstreetmap-tile-server-import:latest
         cache-from : type=gha,scope=${{ github.workflow }}:import-linux/amd64
 
@@ -113,7 +111,6 @@ jobs:
       with:
         context    : ./docker/renderd
         file       : ./docker/renderd/Dockerfile
-        load       : true
         tags       : openstreetmap-tile-server-renderd:latest
         cache-from : type=gha,scope=${{ github.workflow }}:renderd-linux/amd64
 
@@ -123,7 +120,6 @@ jobs:
       with:
         context    : ./docker/web
         file       : ./docker/web/Dockerfile
-        load       : true
         tags       : openstreetmap-tile-server-web:latest
         cache-from : type=gha,scope=${{ github.workflow }}:web-linux/amd64
 
@@ -133,7 +129,6 @@ jobs:
       with:
         context    : ./docker/updater
         file       : ./docker/updater/Dockerfile
-        load       : true
         tags       : openstreetmap-tile-server-updater:latest
         cache-from : type=gha,scope=${{ github.workflow }}:updater-linux/amd64
 
@@ -300,9 +295,17 @@ jobs:
         uses: step-security/harden-runner@ab7a9404c0f3da075243ca237b5fac12c98deaa5 # v2.19.3
         with:
           egress-policy: audit
+
+      -
+        name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
       -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
       -
         name: Build
         id: docker_build
