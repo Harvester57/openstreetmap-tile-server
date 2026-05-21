@@ -69,8 +69,18 @@ jobs:
         context    : ./docker/${{ matrix.service }}
         file       : ./docker/${{ matrix.service }}/Dockerfile
         tags       : openstreetmap-tile-server-${{ matrix.service }}:latest
+        outputs    : type=docker,dest=/tmp/openstreetmap-tile-server-${{ matrix.service }}-${{ matrix.arch }}.tar
         cache-from : type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-${{ env.PLATFORM }}
         cache-to   : type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-${{ env.PLATFORM }},mode=max
+
+    -
+      name: Upload Image Artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: openstreetmap-tile-server-${{ matrix.service }}-${{ matrix.arch }}
+        path: /tmp/openstreetmap-tile-server-${{ matrix.service }}-${{ matrix.arch }}.tar
+        if-no-files-found: error
+        retention-days: 1
 
   test:
     runs-on: ubuntu-24.04
@@ -93,44 +103,19 @@ jobs:
           persist-credentials: false
 
     -
-      name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+      name: Download Image Artifacts
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        pattern: openstreetmap-tile-server-*-amd64
+        path: /tmp
+        merge-multiple: true
 
     -
-      name: Load Importer from Cache
-      uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
-      with:
-        context    : ./docker/import
-        file       : ./docker/import/Dockerfile
-        tags       : openstreetmap-tile-server-import:latest
-        cache-from : type=gha,scope=${{ github.workflow }}:import-linux/amd64
-
-    -
-      name: Load Renderer from Cache
-      uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
-      with:
-        context    : ./docker/renderd
-        file       : ./docker/renderd/Dockerfile
-        tags       : openstreetmap-tile-server-renderd:latest
-        cache-from : type=gha,scope=${{ github.workflow }}:renderd-linux/amd64
-
-    -
-      name: Load Webserver from Cache
-      uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
-      with:
-        context    : ./docker/web
-        file       : ./docker/web/Dockerfile
-        tags       : openstreetmap-tile-server-web:latest
-        cache-from : type=gha,scope=${{ github.workflow }}:web-linux/amd64
-
-    -
-      name: Load Updater from Cache
-      uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
-      with:
-        context    : ./docker/updater
-        file       : ./docker/updater/Dockerfile
-        tags       : openstreetmap-tile-server-updater:latest
-        cache-from : type=gha,scope=${{ github.workflow }}:updater-linux/amd64
+      name: Load Images
+      run: |
+        for image in import renderd web updater; do
+          docker load --input /tmp/openstreetmap-tile-server-$image-amd64.tar
+        done
 
     -
       name: Import Luxembourg
@@ -245,7 +230,7 @@ jobs:
         sbom       : true
         pull       : true
         push       : true
-        provenance: mode=max
+        provenance : mode=max
         platforms  : linux/amd64,linux/arm64/v8
         context    : ./docker/${{ matrix.service }}
         file       : ./docker/${{ matrix.service }}/Dockerfile
@@ -303,21 +288,17 @@ jobs:
           persist-credentials: false
 
       -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+        name: Download Image Artifact
+        uses: actions/download-artifact@fa1a90145b931754c561ee5ad3ea7382d246f6f9 # v4.1.8
+        with:
+          name: openstreetmap-tile-server-${{ matrix.service }}-amd64
+          path: /tmp
 
       -
-        name: Build
-        id: docker_build
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
-        with:
-          push: false
-          load: true
-          context: ./docker/${{ matrix.service }}
-          file: ./docker/${{ matrix.service }}/Dockerfile
-          tags: localbuild/testimage-${{ matrix.service }}:latest
-          platforms: linux/amd64
-          cache-from: type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-linux/amd64
+        name: Load Image
+        run: |
+          docker load --input /tmp/openstreetmap-tile-server-${{ matrix.service }}-amd64.tar
+          docker tag openstreetmap-tile-server-${{ matrix.service }}:latest localbuild/testimage-${{ matrix.service }}:latest
       -
         name: Generate SBOM and upload dependency results
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
