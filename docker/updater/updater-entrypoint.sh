@@ -5,6 +5,9 @@ set -euo pipefail
 # Print commands for debugging
 set -x
 
+# Set umask so that newly created files/directories have group-write permissions
+umask 0002
+
 export UPDATES="${UPDATES:-disabled}"
 export PGHOST="${PGHOST:-db}"
 export PGUSER="${PGUSER:-_renderd}"
@@ -15,6 +18,8 @@ export MAX_INTERVAL_SECONDS="${MAX_INTERVAL_SECONDS:-3600}"
 # Ensure correct log and database permissions
 mkdir -p /var/log/tiles /data/database
 chown -R _renderd: /var/log/tiles /data/database /var/cache/renderd/tiles
+chmod -R 775 /var/cache/renderd/tiles/
+find /var/cache/renderd/tiles/ -type d -exec chmod g+s {} +
 
 # Automatically initialize osmosis workspace if not present
 if [ ! -f /data/database/.osmosis/state.txt ]; then

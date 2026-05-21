@@ -31,6 +31,7 @@ RUN apt-get update && \
     fonts-noto-cjk \
     fonts-noto-hinted \
     fonts-noto-unhinted \
+    sudo \
     fonts-unifont && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

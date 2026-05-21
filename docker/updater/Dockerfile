@@ -18,42 +18,34 @@ ENV PG_VERSION=18
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    ca-certificates gnupg lsb-release locales wget curl unzip bzip2 git-core postgresql-common gnupg2 sudo && \
-    locale-gen $LANG && update-locale LANG=$LANG && \
-    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v $PG_VERSION && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 RUN (groupadd -g 1001 _renderd 2>/dev/null || true) && \
     (useradd -u 1001 -g 1001 -m -d /home/_renderd -s /bin/bash _renderd 2>/dev/null || usermod -d /home/_renderd -s /bin/bash _renderd)
 
-# ==============================================================================
-# Main Target: Updater
-# ==============================================================================
-FROM base-db-client
-
 RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates gnupg lsb-release locales wget curl unzip bzip2 postgresql-common gnupg2 sudo && \
+    locale-gen $LANG && update-locale LANG=$LANG && \
+    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v $PG_VERSION && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
     osmosis \
     osmium-tool \
     osm2pgsql \
     postgresql-client-$PG_VERSION \
     python-is-python3 \
-    python3 \
-    python3-requests \
-    python3-yaml \
     python3-psycopg2 \
-    python3-lxml \
     python3-shapely \
-    python3-colormath \
-    python3-numpy \
+    python3-lxml \
     dateutils \
     renderd \
     libapache2-mod-tile && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# ==============================================================================
+# Main Target: Updater
+# ==============================================================================
+FROM base-db-client
 
 COPY openstreetmap-tiles-update-expire.sh /usr/bin/
 RUN sed -i 's/\r$//' /usr/bin/openstreetmap-tiles-update-expire.sh && \
