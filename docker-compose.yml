@@ -1,14 +1,109 @@
-version: '3'
-
 services:
-  map:
-    image: ghcr.io/harvester57/openstreetmap-tile-server:master
+  db:
+    image: openstreetmap-tile-server-db:latest
+    build:
+      context: ./docker/db
+    environment:
+      POSTGRES_DB: gis
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${PGPASSWORD:-_renderd}
+      AUTOVACUUM: ${AUTOVACUUM:-on}
     volumes:
-      - osm-data:/data/database/
-    ports:
-      - "8080:80"
-    command: "run"
+      - osm-db-data:/var/lib/postgresql
+      - ./docker/db/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./docker/db/10-optimize-db.sh:/docker-entrypoint-initdb.d/10-optimize-db.sh:ro
+      - ./docker/db/postgresql.custom.conf.tmpl:/etc/postgresql/postgresql.custom.conf.tmpl:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d gis" ]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
 
+  import:
+    image: openstreetmap-tile-server-import:latest
+    build:
+      context: ./docker/import
+    environment:
+      PGHOST: db
+      PGUSER: postgres
+      PGPASSWORD: ${PGPASSWORD:-_renderd}
+      DOWNLOAD_PBF: ${DOWNLOAD_PBF:-}
+      THREADS: ${THREADS:-4}
+      FLAT_NODES: ${FLAT_NODES:-disabled}
+    volumes:
+      - osm-style:/data/style
+      - osm-import-data:/data/database
+      # Optional: To use a local OSM PBF file from your host, uncomment the line below:
+      # - ./region.osm.pbf:/data/region.osm.pbf
+    depends_on:
+      db:
+        condition: service_healthy
+
+  renderd:
+    image: openstreetmap-tile-server-renderd:latest
+    build:
+      context: ./docker/renderd
+    environment:
+      PGHOST: db
+      PGUSER: _renderd
+      PGPASSWORD: ${PGPASSWORD:-_renderd}
+      THREADS: ${THREADS:-4}
+    volumes:
+      - osm-style:/data/style
+      - osm-tiles:/var/cache/renderd/tiles
+      - renderd-socket:/run/renderd
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: openstreetmap-tile-server-web:latest
+    build:
+      context: ./docker/web
+    ports:
+      - "${PORT:-8080}:80"
+    environment:
+      ALLOW_CORS: ${ALLOW_CORS:-enabled}
+    volumes:
+      - osm-tiles:/var/cache/renderd/tiles
+      - renderd-socket:/run/renderd
+    depends_on:
+      - renderd
+
+  updater:
+    image: openstreetmap-tile-server-updater:latest
+    build:
+      context: ./docker/updater
+    environment:
+      PGHOST: db
+      PGUSER: _renderd
+      PGPASSWORD: ${PGPASSWORD:-_renderd}
+      THREADS: ${THREADS:-4}
+    volumes:
+      - osm-style:/data/style
+      - osm-tiles:/var/cache/renderd/tiles
+      - osm-import-data:/data/database
+      - renderd-socket:/run/renderd
+    depends_on:
+      db:
+        condition: service_healthy
+      renderd:
+        condition: service_started
+
+# Named volumes for sharing data between microservices
 volumes:
-  osm-data:
-    external: true
+  # Dedicated volume for PostgreSQL data cluster storage
+  osm-db-data:
+
+  # Volume for osm2pgsql flat nodes, replication sequence files, and polygons
+  osm-import-data:
+
+  # Shared stylesheet volume containing compiled XML styles
+  osm-style:
+
+  # Shared tile cache directory accessed by both Apache and renderd
+  osm-tiles:
+
+  # Shared Unix socket directory for mod_tile/renderd communication
+  renderd-socket:

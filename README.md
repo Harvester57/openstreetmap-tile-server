@@ -1,343 +1,282 @@
-# openstreetmap-tile-server
+# High-Performance OpenStreetMap Tile Server
 
-This container allows you to easily set up an OpenStreetMap PNG tile server given a `.osm.pbf` file. It is based on the [Ubuntu 24.04 LTS guide](https://switch2osm.org/serving-tiles/manually-building-a-tile-server-ubuntu-24-04-lts/) from [switch2osm.org](https://switch2osm.org/) and therefore uses the default OpenStreetMap style.
+A fully-featured, high-performance OpenStreetMap (OSM) PNG tile server package based on the **Ubuntu 24.04 LTS manual tile server guide** from [switch2osm.org](https://switch2osm.org/). 
 
-## Functional Changes & Fork Enhancements
+This project implements a decoupled, modern **microservices architecture** managed via **Docker Compose**, separating concerns into independent, highly optimized containerized services for database persistence, high-speed importing, tile rendering, web serving, and background updates.
 
-This repository is a modernized fork starting from commit `61270b8bffa9694c32442f989e14a9f6cf1d1aa3`. The following major upgrades, performance optimizations, and backend enhancements have been introduced:
+---
 
-*   **Ubuntu 24.04 LTS Base Upgrade**: Upgraded the container operating system to Ubuntu 24.04 LTS to align with the latest switch2osm.org manual tile server guide.
-*   **Database & Geospatial Engine Upgrades**:
-    *   Upgraded database engine to **PostgreSQL 17** (with PostGIS 3).
-    *   Upgraded default stylesheet to **OpenStreetMap Carto v6.0.0** (fully integrating auxiliary tables `common-values.sql` and `functions.sql`).
-*   **Transition to osm2pgsql Flex Output**: Migrated the data import pipeline from the legacy `-S openstreetmap-carto.style` layout to the modern **osm2pgsql flex output** (`-O flex` using `openstreetmap-carto-flex.lua`), enabling advanced rendering layout customization.
-*   **Incremental / Appending Imports**: Enhanced `run.sh` to check if the `gis` database has already been initialized. If so, the container skips full PostgreSQL setup and automatically runs `osm2pgsql` in `--append` mode instead of `--create`, enabling incremental data imports without wiping existing datasets.
-*   **Standardized Security & User Permissions**: Replaced the custom `renderer` user and folder permissions with the standard Ubuntu `_renderd` system account across all service runners, scripts, cron jobs, and database access routines.
-*   **PostgreSQL Performance Tuning**: Optimized `postgresql.custom.conf.tmpl` to handle large write sequences and heavy rendering loads:
-    *   Significantly increased database memory limits (`shared_buffers` to 2GB, `maintenance_work_mem` to 1GB, `work_mem` to 256MB).
-    *   Tuned WAL operations (`wal_level = minimal`, `max_wal_size = 10GB`, `synchronous_commit = off`, `checkpoint_timeout = 60min`).
-    *   Disabled PostgreSQL JIT (`jit = off`) to eliminate significant compilation overhead on complex geospatial queries.
-*   **Cleaned and Robust Configuration**:
-    *   Extracted the rendering configuration into a standalone, static `renderd.conf` template.
-    *   Consolidated `Dockerfile` layers to improve build caching, copying necessary font assets (`NotoEmoji-Regular.ttf` and `unifont-Medium.ttf`) locally instead of downloading them dynamically during builds.
-    *   Added standard container `HEALTHCHECK` monitoring.
-*   **Modern GitHub Actions CI/CD**: Replaced Travis CI with GitHub Actions workflows supporting automated multi-architecture (`amd64` / `arm64`) builds on native ARM runners, image provenance attestation (Sigstore Cosign), Software Bill of Materials (SBOM) generation, OpenSSF Scorecards, and deployment to `ghcr.io`.
-*   **Frontend Updates**: Upgraded the built-in Leaflet map demo to version **v1.9.4** for a cleaner and more secure default map-viewing experience.
+## Microservices Architecture & Directory Layout
 
-## Setting up the server
-
-First create a Docker volume to hold the PostgreSQL database that will contain the OpenStreetMap data:
-
-    docker volume create osm-data
-
-Next, download an `.osm.pbf` extract from geofabrik.de for the region that you're interested in. You can then start importing it into PostgreSQL by running a container and mounting the file as `/data/region.osm.pbf`. For example:
+The application is split into five distinct microservices, designed to work together through shared storage and network configuration:
 
 ```
-docker run \
-    -v /absolute/path/to/luxembourg.osm.pbf:/data/region.osm.pbf \
-    -v osm-data:/data/database/ \
-    ghcr.io/harvester57/openstreetmap-tile-server:master \
-    import
+├── docker-compose.yml       # Orchestrates the microservice stack
+├── Makefile                 # Simplifies execution with common developer shortcuts
+├── README.md                # System documentation and instructions
+├── AGENT.md                 # Agent onboarding and layout description
+└── docker/
+    ├── db/                  # PostgreSQL 18 + PostGIS 3.6 database service
+    ├── import/              # One-time data import environment using osm2pgsql
+    ├── renderd/             # Daemon rendering map tiles via Mapnik 3.0
+    ├── web/                 # Apache2 web server with mod_tile & Leaflet demo
+    └── updater/             # Background Osmosis replication update service
 ```
 
-If the container exits without errors, then your data has been successfully imported and you are now ready to run the tile server.
+### The Services
+*   **`db`**: Custom PostgreSQL 18 database with PostGIS 3.6. Specifically pre-configured and performance-tuned for geospatial database operations (optimized WAL, disabled JIT, increased shared buffers).
+*   **`import`**: A short-lived, one-time execution container containing `osm2pgsql` (with modern **flex output** support), `osmosis`, and `osmium-tool` for downloading and importing OSM PBF and polygon files.
+*   **`renderd`**: The rendering service running `renderd` and Mapnik 3.0. It compiles CartoCSS stylesheet styles dynamically and renders PNG tiles on-demand over a shared Unix socket.
+*   **`web`**: Front-facing Apache2 web server compiled with the `mod_tile` module. Serves pre-rendered tiles directly from cache or routes tile-rendering requests to the render daemon. Features a built-in Leaflet v1.9.4 interactive map.
+*   **`updater`**: A long-running background replication updater. It polls global or regional replication feeds using `osmosis` and trims changesets using `trim_osc.py` for regional synchronization.
 
-Note that the import process requires an internet connection. The run process does not require an internet connection. If you want to run the openstreetmap-tile server on a computer that is isolated, you must first import on an internet connected computer, export the `osm-data` volume as a tarfile, and then restore the data volume on the target computer system.
+---
 
-Also when running on an isolated system, the default `index.html` from the container will not work, as it requires access to the web for the leaflet packages.
+## Shared Volume Strategy
 
-### Automatic updates (optional)
+To coordinate data between decoupled containers safely and with minimal filesystem overhead, this repository relies on Docker named volumes:
 
-If your import is an extract of the planet and has polygonal bounds associated with it, like those from [geofabrik.de](https://download.geofabrik.de/), then it is possible to set your server up for automatic updates. Make sure to reference both the OSM file and the polygon file during the `import` process to facilitate this, and also include the `UPDATES=enabled` variable:
+*   `osm-db-data`: Stores the PostgreSQL database cluster files.
+*   `osm-import-data`: Shared directory storing import metrics, replication sequence state files, and custom boundary polygons (`region.poly`).
+*   `osm-style`: Shared stylesheet directory containing openstreetmap-carto assets, shapefiles, and compiled Mapnik XML configurations.
+*   `osm-tiles`: Shared tile cache folder storing rendered `.png` tiles.
+*   `renderd-socket`: High-speed communication folder holding the `/run/renderd/renderd.sock` Unix socket used by `mod_tile` and the render daemon.
 
-```
-docker run \
-    -e UPDATES=enabled \
-    -v /absolute/path/to/luxembourg.osm.pbf:/data/region.osm.pbf \
-    -v /absolute/path/to/luxembourg.poly:/data/region.poly \
-    -v osm-data:/data/database/ \
-    ghcr.io/harvester57/openstreetmap-tile-server:master \
-    import
-```
+---
 
-Refer to the section *Automatic updating and tile expiry* to actually enable the updates while running the tile server.
+## Modernized Fork Enhancements
 
-Please note: If you're not importing the whole planet, then the `.poly` file is necessary to limit automatic updates to the relevant region.
-Therefore, when you only have a `.osm.pbf` file but not a `.poly` file, you should not enable automatic updates.
+This repository is a modernized, production-ready fork optimized for speed, reliability, and security:
 
-### Letting the container download the file
+*   **Ubuntu 24.04 LTS Base**: Every component utilizes Ubuntu 24.04 LTS to leverage the latest system packages, libraries, and security patches.
+*   **Database & Geospatial Engine**: Powered by **PostgreSQL 18** and **PostGIS 3.6** with pre-configured templates tuned for high geospatial write throughput.
+*   **osm2pgsql Flex Output**: Fully migrated to modern **osm2pgsql flex output** (`-O flex` using `openstreetmap-carto-flex.lua` and **openstreetmap-carto v6.0.0** stylesheet).
+*   **Automatic Appending Imports**: The importer automatically detects whether the `gis` database has already been initialized. If found, it skips setup and runs `osm2pgsql` in `--append` mode instead of `--create`, enabling incremental data ingestion.
+*   **Standardized Security & Permissions**: Restores strict standard security by mapping Apache, the renderer daemon, database connections, and cron updates to a non-privileged `_renderd` system user.
+*   **Postgres Performance Tuning**: Reconfigured database settings (disabling `JIT` to eliminate query plan compilation overhead, raising `shared_buffers` to 2GB, tuning checkpoints, and setting a robust 10GB WAL).
+*   **Optimized GitHub Actions CI**: Complete migration to GitHub Actions supporting automated multi-architecture (`amd64` / `arm64`) builds, image provenance attestation (Sigstore Cosign), and Software Bill of Materials (SBOM) generation.
 
-It is also possible to let the container download files for you rather than mounting them in advance by using the `DOWNLOAD_PBF` and `DOWNLOAD_POLY` parameters.
+---
 
-You can pass extra arguments to `wget` (e.g. for proxy or retry settings) using the `WGET_ARGS` environment variable.
+## Quickstart Guide Option A: Using the Makefile
 
-```
-docker run \
-    -e DOWNLOAD_PBF=https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf \
-    -e DOWNLOAD_POLY=https://download.geofabrik.de/europe/luxembourg.poly \
-    -v osm-data:/data/database/ \
-    ghcr.io/harvester57/openstreetmap-tile-server:master \
-    import
-```
+The easiest way to orchestrate the stack is by utilizing the simple, pre-configured `Makefile` shortcuts:
 
-### Using an alternate style
-
-By default the container will use openstreetmap-carto if it is not specified. However, you can modify the style at run-time. Be aware you need the style mounted at `run` AND `import` as the Lua script needs to be run:
-
-```
-docker run \
-    -e DOWNLOAD_PBF=https://download.geofabrik.de/europe/luxembourg-latest.osm.pbf \
-    -e DOWNLOAD_POLY=https://download.geofabrik.de/europe/luxembourg.poly \
-    -e NAME_LUA=sample.lua \
-    -e NAME_STYLE=test.style \
-    -e NAME_MML=project.mml \
-    -e NAME_SQL=test.sql \
-    -v /home/user/openstreetmap-carto-modified:/data/style/ \
-    -v osm-data:/data/database/ \
-    ghcr.io/harvester57/openstreetmap-tile-server:master \
-    import
+### 1. Build the Images
+Compile all five microservice Docker images:
+```bash
+make build
 ```
 
-If you do not define the "NAME_*" variables, the script will default to those found in the openstreetmap-carto style.
-
-Be sure to mount the volume during `run` with the same `-v /home/user/openstreetmap-carto-modified:/data/style/`
-
-If you do not see the expected style upon `run` double check your paths as the style may not have been found at the directory specified. By default, `openstreetmap-carto` will be used if a style cannot be found
-
-**Only openstreetmap-carto and styles like it, eg, ones with one lua script, one style, one mml, one SQL can be used**
-
-## Running the server
-
-Run the server like this:
-
-```
-docker run \
-    -p 8080:80 \
-    -v osm-data:/data/database/ \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
+### 2. Import OpenStreetMap Data
+Trigger the short-lived importer service. By default, this will download and import the Luxembourg dataset:
+```bash
+make import
 ```
 
-Your tiles will now be available at `http://localhost:8080/tile/{z}/{x}/{y}.png`. The demo map in `leaflet-demo.html` will then be available on `http://localhost:8080`. Note that it will initially take quite a bit of time to render the larger tiles for the first time.
-
-### Using Docker Compose
-
-The `docker-compose.yml` file included with this repository shows how the aforementioned command can be used with Docker Compose to run your server.
-
-### Preserving rendered tiles
-
-Tiles that have already been rendered will be stored in `/data/tiles/`. To make sure that this data survives container restarts, you should create another volume for it:
-
+### 3. Run the Tile Server
+Start the core tile serving infrastructure (database, render daemon, and Apache web server):
+```bash
+make start
 ```
-docker volume create osm-tiles
-docker run \
-    -p 8080:80 \
-    -v osm-data:/data/database/ \
-    -v osm-tiles:/data/tiles/ \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
+*Your tile server will be available at `http://localhost:8080/`. You can view the Leaflet demo map at the root URL and retrieve tiles directly via `http://localhost:8080/tile/{z}/{x}/{y}.png`.*
+
+### 4. Run the Tile Server with Background Updates
+Start the serving infrastructure along with background osmosis differential updates:
+```bash
+make start-with-updates
 ```
 
-**If you do this, then make sure to also run the import with the `osm-tiles` volume to make sure that caching works properly across updates!**
+### 5. Stack Management
+```bash
+# View aggregated real-time container logs
+make logs
 
-### Enabling automatic updating (optional)
+# View running status of the services
+make status
 
-Given that you've set up your import as described in the *Automatic updates* section during server setup, you can enable the updating process by setting the `UPDATES` variable while running your server as well:
+# Stop all microservices (preserving data volumes)
+make stop
 
-```
-docker run \
-    -p 8080:80 \
-    -e REPLICATION_URL=https://planet.openstreetmap.org/replication/minute/ \
-    -e MAX_INTERVAL_SECONDS=60 \
-    -e UPDATES=enabled \
-    -v osm-data:/data/database/ \
-    -v osm-tiles:/data/tiles/ \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
+# Stop services and completely destroy all named volumes
+make clean
 ```
 
-This will enable a background process that automatically downloads changes from the OpenStreetMap server, filters them for the relevant region polygon you specified, updates the database and finally marks the affected tiles for rerendering.
+---
 
-### Tile expiration (optional)
+## Quickstart Guide Option B: Using Native Docker Compose Commands
 
-Specify custom tile expiration settings to control which zoom level tiles are marked as expired when an update is performed. Tiles can be marked as expired in the cache (TOUCHFROM), but will still be served
-until a new tile has been rendered, or deleted from the cache (DELETEFROM), so nothing will be served until a new tile has been rendered.
+For advanced developers or environments where `make` is not available, you can control the stack natively using standard `docker compose` CLI commands:
 
-The example tile expiration values below are the default values.
-
-```
-docker run \
-    -p 8080:80 \
-    -e REPLICATION_URL=https://planet.openstreetmap.org/replication/minute/ \
-    -e MAX_INTERVAL_SECONDS=60 \
-    -e UPDATES=enabled \
-    -e EXPIRY_MINZOOM=13 \
-    -e EXPIRY_TOUCHFROM=13 \
-    -e EXPIRY_DELETEFROM=19 \
-    -e EXPIRY_MAXZOOM=20 \
-    -v osm-data:/data/database/ \
-    -v osm-tiles:/data/tiles/ \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
+### 1. Build the Images
+```bash
+docker compose build
 ```
 
-### Cross-origin resource sharing
-
-To enable the `Access-Control-Allow-Origin` header to be able to retrieve tiles from other domains, simply set the `ALLOW_CORS` variable to `enabled`:
-
-```
-docker run \
-    -p 8080:80 \
-    -v osm-data:/data/database/ \
-    -e ALLOW_CORS=enabled \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
+### 2. Import OpenStreetMap Data
+Start the short-lived importer container. Docker Compose will automatically boot the database service, wait for its healthcheck to pass, and execute the import script:
+```bash
+docker compose run --rm import
 ```
 
-### Connecting to Postgres
-
-To connect to the PostgreSQL database inside the container, make sure to expose port 5432:
-
+### 3. Run the Tile Server
+Launch the core tile serving services in the background:
+```bash
+docker compose up -d web
 ```
-docker run \
-    -p 8080:80 \
-    -p 5432:5432 \
-    -v osm-data:/data/database/ \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
-```
+*(Docker Compose handles dependencies automatically: up-ing `web` will start `renderd`, which in turn starts `db` and waits for it to become healthy).*
 
-Use the user `_renderd` and the database `gis` to connect.
-
-```
-psql -h localhost -U _renderd gis
+### 4. Run the Tile Server with Background Updates
+Launch all serving services alongside the background updater:
+```bash
+docker compose up -d web updater
 ```
 
-The default password is `_renderd`, but it can be changed using the `PGPASSWORD` environment variable:
+### 5. Stack Management
+```bash
+# View real-time container logs
+docker compose logs -f
 
-```
-docker run \
-    -p 8080:80 \
-    -p 5432:5432 \
-    -e PGPASSWORD=secret \
-    -v osm-data:/data/database/ \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
-```
+# Check active service containers
+docker compose ps
 
-## Performance tuning and tweaking
+# Stop all running containers and networks (preserving volumes)
+docker compose down
 
-Details for update procedure and invoked scripts can be found here [link](https://ircama.github.io/osm-carto-tutorials/updating-data/).
-
-### THREADS
-
-The import and tile serving processes use 4 threads by default, but this number can be changed by setting the `THREADS` environment variable. For example:
-```
-docker run \
-    -p 8080:80 \
-    -e THREADS=24 \
-    -v osm-data:/data/database/ \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
+# Stop all services and purge all network settings and named volumes
+docker compose down -v
 ```
 
-### CACHE
+---
 
-The import and tile serving processes use 800 MB RAM cache by default, but this number can be changed by option -C. For example:
-```
-docker run \
-    -p 8080:80 \
-    -e "OSM2PGSQL_EXTRA_ARGS=-C 4096" \
-    -v osm-data:/data/database/ \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
-```
+## Detailed Custom Setup & Importing
 
-### AUTOVACUUM
+### Using a Local OSM PBF File
+If you have a local `.osm.pbf` file you want to import instead of downloading one:
 
-The database use the autovacuum feature by default. This behavior can be changed with `AUTOVACUUM` environment variable. For example:
-```
-docker run \
-    -p 8080:80 \
-    -e AUTOVACUUM=off \
-    -v osm-data:/data/database/ \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
-```
+1. Place your file in the project root directory and name it `region.osm.pbf`.
+2. Open `docker-compose.yml` and uncomment the local volume mapping under the `import` service:
+   ```yaml
+   volumes:
+     - osm-style:/data/style
+     - osm-import-data:/data/database
+     - ./region.osm.pbf:/data/region.osm.pbf  # <--- Uncomment this line
+   ```
+3. Run the import command:
+   ```bash
+   make import
+   # OR: docker compose run --rm import
+   ```
 
-### FLAT_NODES
+### Letting the Stack Download Custom Datasets
+To let the importer download a custom region automatically, pass the remote URL of the `.osm.pbf` (and optionally the `.poly` boundary file) as inline environment variables or configure them in a local `.env` file:
 
-If you are planning to import the entire planet or you are running into memory errors then you may want to enable the `--flat-nodes` option for osm2pgsql. You can then use it during the import process as follows:
-
-```
-docker run \
-    -v /absolute/path/to/luxembourg.osm.pbf:/data/region.osm.pbf \
-    -v osm-data:/data/database/ \
-    -e "FLAT_NODES=enabled" \
-    ghcr.io/harvester57/openstreetmap-tile-server:master \
-    import
+```bash
+DOWNLOAD_PBF="https://download.geofabrik.de/europe/liechtenstein-latest.osm.pbf" \
+DOWNLOAD_POLY="https://download.geofabrik.de/europe/liechtenstein.poly" \
+make import
 ```
 
-Warning: enabling `FLAT_NOTES` together with `UPDATES` only works for entire planet imports (without a `.poly` file).  Otherwise this will break the automatic update script. This is because trimming the differential updates to the specific regions currently isn't supported when using flat nodes.
+> [!TIP]
+> If you are importing a custom region, we highly recommend providing a `.poly` boundary file. Without it, the background `updater` service will apply global differential updates, which will corrupt and pollute your regional database.
 
-### Benchmarks
+### Incremental / Appending Imports
+The import process is fully incremental. If you have already imported a region and want to add another without wiping the database:
+1. Provide the new `.osm.pbf` file (either mounted as `region.osm.pbf` or via `DOWNLOAD_PBF`).
+2. Run the import again:
+   ```bash
+   make import
+   ```
+The container will auto-detect the existing database table structure, skip the initial schema setup, and automatically run `osm2pgsql` in `--append` mode.
 
-You can find an example of the import performance to expect with this image on the [OpenStreetMap wiki](https://wiki.openstreetmap.org/wiki/Osm2pgsql/benchmarks#debian_9_.2F_openstreetmap-tile-server).
+---
 
-## Environment variable reference
+## Automatic Updating and Tile Expiry
 
-The following table summarizes all supported environment variables, their default values, and which command (`import`, `run`, or both) they apply to.
+To keep your tiles synchronized with live global OSM data:
 
-| Variable | Default | Scope | Description |
-|---|---|---|---|
-| `DOWNLOAD_PBF` | *(none)* | `import` | URL to download a PBF file instead of mounting one |
-| `DOWNLOAD_POLY` | *(none)* | `import` | URL to download a polygon file for region-limited updates |
-| `WGET_ARGS` | *(none)* | `import` | Extra arguments passed to `wget` for downloads |
-| `FLAT_NODES` | `disabled` | `import` | Set to `enabled` to use flat-nodes mode (recommended for planet imports) |
-| `OSM2PGSQL_EXTRA_ARGS` | `-C 2500` | `import` | Extra arguments passed to `osm2pgsql` (e.g. `-C 4096` for cache) |
-| `ALLOW_CORS` | `disabled` | `run` | Set to `enabled` to add the `Access-Control-Allow-Origin` header |
-| `THREADS` | `4` | both | Number of threads for importing and tile rendering |
-| `UPDATES` | `disabled` | both | Set to `enabled` to activate automatic diff updates |
-| `AUTOVACUUM` | `on` | both | PostgreSQL autovacuum setting (`on` or `off`) |
-| `PGPASSWORD` | `_renderd` | both | PostgreSQL password for the `_renderd` user |
-| `NAME_LUA` | `openstreetmap-carto-flex.lua` | both | Lua transform script for the style |
-| `NAME_STYLE` | `openstreetmap-carto.style` | both | Style file to use |
-| `NAME_MML` | `project.mml` | both | MML file to render to `mapnik.xml` |
-| `NAME_SQL` | `indexes.sql` | both | SQL file for index creation |
-| `REPLICATION_URL` | `https://planet.openstreetmap.org/replication/hour/` | updates | Replication server URL |
-| `MAX_INTERVAL_SECONDS` | `3600` | updates | Maximum replication interval in seconds |
-| `EXPIRY_MINZOOM` | `13` | updates | Minimum zoom level for tile expiry |
-| `EXPIRY_TOUCHFROM` | `13` | updates | Zoom level from which expired tiles are marked |
-| `EXPIRY_DELETEFROM` | `19` | updates | Zoom level from which expired tiles are deleted |
-| `EXPIRY_MAXZOOM` | `20` | updates | Maximum zoom level for tile expiry |
+1. Import your dataset with a polygon bound file (via `DOWNLOAD_POLY` or by mounting it at `/data/region.poly`).
+2. Start the stack with the updater enabled:
+   ```bash
+   make start-with-updates
+   # OR: docker compose up -d web updater
+   ```
+3. The `updater` container will continuously pull OSM diff changesets at the configured interval, apply them to the database, and trigger tile expiration routines so that modified tiles are scheduled for rerendering.
 
-## Troubleshooting
+---
 
-### ERROR: could not resize shared memory segment / No space left on device
+## Using an Alternate Rendering Style
 
-If you encounter such entries in the log, it will mean that the default shared memory limit (64 MB) is too low for the container and it should be raised:
+By default, the server sets up the standard OpenStreetMap Carto style. You can customize the stylesheet by mounting your own stylesheet assets folder:
+
+1. Mount your custom style folder to the `osm-style` named volume or directory.
+2. In the `import` and `renderd` configurations, specify the following environment variables if your style files use custom names:
+   *   `NAME_LUA`: Lua transform stylesheet script (default: `openstreetmap-carto-flex.lua`).
+   *   `NAME_STYLE`: Legacy style sheet layout (default: `openstreetmap-carto.style`).
+   *   `NAME_MML`: MML stylesheet index (default: `project.mml`).
+   *   `NAME_SQL`: SQL index definition script (default: `indexes.sql`).
+
+---
+
+## Environment Variables Reference
+
+Configure these settings inside a `.env` file in the repository root or supply them inline during execution:
+
+| Variable | Default | Affected Services | Description |
+| :--- | :--- | :--- | :--- |
+| `PORT` | `8080` | `web` | Exposed host port for the web server and Leaflet map interface. |
+| `THREADS` | `4` | `import`, `renderd`, `updater` | Number of CPU cores allocated for database imports, rendering threads, and updates. |
+| `ALLOW_CORS` | `enabled` | `web` | Toggles Cross-Origin Resource Sharing (`enabled` or `disabled`) on Apache. |
+| `FLAT_NODES` | `disabled` | `import` | Set to `enabled` to use flat node files (`flat_nodes.bin`). Crucial for full-planet imports. |
+| `OSM2PGSQL_EXTRA_ARGS` | `-C 2500` | `import` | Extra arguments forwarded to `osm2pgsql` (e.g., `-C 8192` to raise memory cache). |
+| `PGPASSWORD` | `_renderd` | *All Services* | Database password for the internal system rendering user. |
+| `AUTOVACUUM` | `on` | `db` | Toggles the PostgreSQL autovacuum daemon (`on` or `off`). |
+| `DOWNLOAD_PBF` | *(none)* | `import` | Remote URL to fetch the `.osm.pbf` file from if not mounting a local file. |
+| `DOWNLOAD_POLY` | *(none)* | `import` | Remote URL to download the region boundary `.poly` file. |
+| `WGET_ARGS` | *(none)* | `import` | Custom arguments supplied to `wget` when downloading map resources. |
+| `REPLICATION_URL` | `https://planet.openstreetmap.org/replication/hour/` | `updater` | Target URL of the OpenStreetMap OSM change/replication server. |
+| `MAX_INTERVAL_SECONDS` | `3600` | `updater` | Maximum duration replication files cover in a single update loop. |
+| `EXPIRY_MINZOOM` | `13` | `updater` | Minimum zoom level where expired tiles are marked for expiry. |
+| `EXPIRY_TOUCHFROM` | `13` | `updater` | Zoom level where expired tiles are touched in-cache. |
+| `EXPIRY_DELETEFROM` | `19` | `updater` | Zoom level where expired tiles are physically deleted from disk cache. |
+| `EXPIRY_MAXZOOM` | `20` | `updater` | Maximum zoom level for tile expiration tracking. |
+
+---
+
+## Performance Tuning & Tweaking
+
+### Shared Memory Allocations
+Because PostgreSQL runs in a dedicated service, you no longer need to pass `--shm-size` flags at container execution. Custom shared memory and WAL buffers are automatically optimized inside the performance template `postgresql.custom.conf.tmpl` and managed natively by Docker Compose.
+
+### Large Database Cache Tuning
+When importing datasets larger than 10GB, increase the `osm2pgsql` RAM cache. Set `OSM2PGSQL_EXTRA_ARGS` to assign ~75% of your available memory:
+```bash
+OSM2PGSQL_EXTRA_ARGS="-C 16384" THREADS=12 make import
 ```
-renderd[121]: ERROR: failed to render TILE default 2 0-3 0-3
-renderd[121]: reason: Postgis Plugin: ERROR: could not resize shared memory segment "/PostgreSQL.790133961" to 12615680 bytes: ### No space left on device
-```
-To raise it use `--shm-size` parameter. For example:
-```
-docker run \
-    -p 8080:80 \
-    -v osm-data:/data/database/ \
-    --shm-size="192m" \
-    -d ghcr.io/harvester57/openstreetmap-tile-server:master \
-    run
-```
-For too high values you may notice excessive CPU load and memory usage. It might be that you will have to experimentally find the best values for yourself.
 
-### The import process unexpectedly exits
+### Flat Nodes File (For Planet Imports)
+If importing the entire planet or large regions where database memory usage might trigger out-of-memory exits, enable the flat nodes file storage system:
+```bash
+FLAT_NODES=enabled make import
+```
+*Note: Using `FLAT_NODES` alongside `UPDATES` is only supported for full-planet datasets without a polygon bounding file.*
 
-You may be running into problems with memory usage during the import. Have a look at the "Flat nodes" section in this README.
+---
+
+## Database Direct Connections
+
+To connect directly to the database service for troubleshooting, GIS data verification, or manual query execution:
+
+```bash
+# Connect using the standard psql utility on the database container
+docker compose exec db psql -U _renderd -d gis
+```
+
+---
 
 ## License
 
-```
+```text
 Copyright 2019 Alexander Overvoorde
 
 Licensed under the Apache License, Version 2.0 (the "License");

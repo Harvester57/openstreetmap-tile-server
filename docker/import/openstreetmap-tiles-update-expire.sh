@@ -17,7 +17,7 @@ OSM2PGSQL_BIN=osm2pgsql
 TRIM_BIN=/home/_renderd/src/regional/trim_osc.py
 
 DBNAME=gis
-OSM2PGSQL_OPTIONS="-d $DBNAME -G --hstore --tag-transform-script /data/style/${NAME_LUA:-openstreetmap-carto.lua} --number-processes ${THREADS:-4} -S /data/style/${NAME_STYLE:-openstreetmap-carto.style} ${OSM2PGSQL_EXTRA_ARGS}"
+OSM2PGSQL_OPTIONS="-d $DBNAME -O flex -S /data/style/${NAME_LUA:-openstreetmap-carto-flex.lua} --number-processes ${THREADS:-4} ${OSM2PGSQL_EXTRA_ARGS}"
 
 # flat-nodes
 if [ -f /data/database/flat_nodes.bin ]; then
@@ -31,7 +31,7 @@ fi
 # This area will usually correspond to the data originally loaded.
 #------------------------------------------------------------------------------
 TRIM_POLY_FILE="/data/database/region.poly"
-TRIM_OPTIONS="-d $DBNAME"
+TRIM_OPTIONS="-d $DBNAME --host ${PGHOST:-db} --user ${PGUSER:-_renderd} --password"
 TRIM_REGION_OPTIONS="-p $TRIM_POLY_FILE"
 
 BASE_DIR=/data/database
@@ -114,11 +114,6 @@ if [ $# -eq 1 ] ; then
     init_seq=$(/usr/lib/python3-pyosmium/pyosmium-get-changes --server $REPLICATION_URL -D $1)
     url_dynamicPart=$(printf %09d $init_seq | sed 's_\([0-9][0-9][0-9]\)\([0-9][0-9][0-9]\)\([0-9][0-9][0-9]\)_\1/\2/\3_')
     wget $REPLICATION_URL/$url_dynamicPart.state.txt -O $WORKOSM_DIR/state.txt
-
-    cat > $WORKOSM_DIR/configuration.txt <<- EOM
-baseUrl=$REPLICATION_URL
-maxInterval=$MAX_INTERVAL_SECONDS
-EOM
 fi
 
 # make sure the lockfile is removed when we exit and then claim it
@@ -191,11 +186,14 @@ m_ok "expiring tiles"
 # delete >= $EXPIRY_DELETEFROM and <= $EXPIRY_MAXZOOM.
 # The default path to renderd.sock is fixed.
 #------------------------------------------------------------------------------
-if ! render_expired --map=default --min-zoom=$EXPIRY_MINZOOM --touch-from=$EXPIRY_TOUCHFROM --delete-from=$EXPIRY_DELETEFROM --max-zoom=$EXPIRY_MAXZOOM -s /run/renderd/renderd.sock < "$EXPIRY_FILE.$$" 2>&1 | tail -8 >> "$EXPIRYLOG"; then
-    m_info "Expiry failed"
+if [ -f "$EXPIRY_FILE.$$" ]; then
+    if ! render_expired --map=default --min-zoom=$EXPIRY_MINZOOM --touch-from=$EXPIRY_TOUCHFROM --delete-from=$EXPIRY_DELETEFROM --max-zoom=$EXPIRY_MAXZOOM -s /run/renderd/renderd.sock < "$EXPIRY_FILE.$$" 2>&1 | tail -8 >> "$EXPIRYLOG"; then
+        m_info "Expiry failed"
+    fi
+    rm "$EXPIRY_FILE.$$" || true
+else
+    m_ok "No expired tiles list generated, skipping expiry."
 fi
-
-rm "$EXPIRY_FILE.$$"
 
 #------------------------------------------------------------------------------
 # Only remove the lock file after expiry (if system is slow we want to delay
