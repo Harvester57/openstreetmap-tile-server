@@ -29,8 +29,11 @@ services:
       PGUSER: postgres
       PGPASSWORD: ${PGPASSWORD:-_renderd}
       DOWNLOAD_PBF: ${DOWNLOAD_PBF:-}
+      DOWNLOAD_POLY: ${DOWNLOAD_POLY:-}
       THREADS: ${THREADS:-4}
       FLAT_NODES: ${FLAT_NODES:-disabled}
+      OSM2PGSQL_EXTRA_ARGS: ${OSM2PGSQL_EXTRA_ARGS:-}
+      WGET_ARGS: ${WGET_ARGS:-}
     volumes:
       - osm-style:/data/style
       - osm-import-data:/data/database
@@ -80,6 +83,14 @@ services:
       PGUSER: _renderd
       PGPASSWORD: ${PGPASSWORD:-_renderd}
       THREADS: ${THREADS:-4}
+      UPDATES: ${UPDATES:-disabled}
+      REPLICATION_URL: ${REPLICATION_URL:-https://planet.openstreetmap.org/replication/hour/}
+      MAX_INTERVAL_SECONDS: ${MAX_INTERVAL_SECONDS:-3600}
+      REPLICATION_TIMESTAMP: ${REPLICATION_TIMESTAMP:-}
+      EXPIRY_MINZOOM: ${EXPIRY_MINZOOM:-13}
+      EXPIRY_TOUCHFROM: ${EXPIRY_TOUCHFROM:-13}
+      EXPIRY_DELETEFROM: ${EXPIRY_DELETEFROM:-19}
+      EXPIRY_MAXZOOM: ${EXPIRY_MAXZOOM:-20}
     volumes:
       - osm-style:/data/style
       - osm-tiles:/var/cache/renderd/tiles
