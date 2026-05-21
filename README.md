@@ -218,12 +218,57 @@ By default, the server sets up the standard OpenStreetMap Carto style. You can c
 
 ---
 
+## Docker Image Configurations & Environment Files
+
+This repository supports two main deployment environments: pulling pre-built microservice images from the **GitHub Container Registry (GHCR.io)**, or compiling and running the stack **locally from source**. 
+
+These settings are managed via environment files in the project root:
+
+### 1. Remote Images via GHCR (Production / Default)
+By default, the `.env` file in the root of the project is configured to pull official, optimized microservice images hosted on GHCR:
+```ini
+DB_IMAGE=ghcr.io/harvester57/openstreetmap-tile-server-db:latest
+IMPORT_IMAGE=ghcr.io/harvester57/openstreetmap-tile-server-import:latest
+RENDERD_IMAGE=ghcr.io/harvester57/openstreetmap-tile-server-renderd:latest
+WEB_IMAGE=ghcr.io/harvester57/openstreetmap-tile-server-web:latest
+UPDATER_IMAGE=ghcr.io/harvester57/openstreetmap-tile-server-updater:latest
+```
+To run the server using these published images, simply run standard Compose commands (Docker Compose automatically detects and loads the `.env` file):
+```bash
+docker compose up -d web
+```
+
+### 2. Locally Built Images (Local Development)
+For developer workflows, working entirely offline, or building your own custom container optimizations from source, use the `.env.local` file:
+```ini
+DB_IMAGE=openstreetmap-tile-server-db:latest
+IMPORT_IMAGE=openstreetmap-tile-server-import:latest
+RENDERD_IMAGE=openstreetmap-tile-server-renderd:latest
+WEB_IMAGE=openstreetmap-tile-server-web:latest
+UPDATER_IMAGE=openstreetmap-tile-server-updater:latest
+```
+To build and execute the local stack, instruct Docker Compose to load `.env.local` using the `--env-file` flag:
+```bash
+# Build all local images from source
+docker compose --env-file .env.local build
+
+# Run the locally built services
+docker compose --env-file .env.local up -d web
+```
+
+---
+
 ## Environment Variables Reference
 
-Configure these settings inside a `.env` file in the repository root or supply them inline during execution:
+Configure these settings inside a `.env` or `.env.local` file in the repository root, or supply them inline during execution:
 
 | Variable | Default | Affected Services | Description |
 | :--- | :--- | :--- | :--- |
+| `DB_IMAGE` | `ghcr.io/harvester57/openstreetmap-tile-server-db:latest` | `db` | Docker image tag for the PostgreSQL database service. |
+| `IMPORT_IMAGE` | `ghcr.io/harvester57/openstreetmap-tile-server-import:latest` | `import` | Docker image tag for the osm2pgsql data importer service. |
+| `RENDERD_IMAGE` | `ghcr.io/harvester57/openstreetmap-tile-server-renderd:latest` | `renderd` | Docker image tag for the render daemon service. |
+| `WEB_IMAGE` | `ghcr.io/harvester57/openstreetmap-tile-server-web:latest` | `web` | Docker image tag for the Apache2 web server service. |
+| `UPDATER_IMAGE` | `ghcr.io/harvester57/openstreetmap-tile-server-updater:latest` | `updater` | Docker image tag for the Osmosis background updater service. |
 | `PORT` | `8080` | `web` | Exposed host port for the web server and Leaflet map interface. |
 | `THREADS` | `4` | `import`, `renderd`, `updater` | Number of CPU cores allocated for database imports, rendering threads, and updates. |
 | `ALLOW_CORS` | `enabled` | `web` | Toggles Cross-Origin Resource Sharing (`enabled` or `disabled`) on Apache. |
@@ -259,7 +304,7 @@ If importing the entire planet or large regions where database memory usage migh
 ```bash
 FLAT_NODES=enabled make import
 ```
-*Note: Using `FLAT_NODES` alongside `UPDATES` is only supported for full-planet datasets without a polygon bounding file.*
+*Note: Using `FLAT_NODES` alongside the updater container is only supported for full-planet datasets without a polygon bounding file.*
 
 ---
 

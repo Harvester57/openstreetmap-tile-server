@@ -8,7 +8,6 @@ set -x
 # Set umask so that newly created files/directories have group-write permissions
 umask 0002
 
-export UPDATES="${UPDATES:-disabled}"
 export PGHOST="${PGHOST:-db}"
 export PGUSER="${PGUSER:-_renderd}"
 export PGPASSWORD="${PGPASSWORD:-_renderd}"

@@ -1,6 +1,6 @@
 services:
   db:
-    image: openstreetmap-tile-server-db:latest
+    image: ${DB_IMAGE:-openstreetmap-tile-server-db:latest}
     build:
       context: ./docker/db
     environment:
@@ -21,7 +21,7 @@ services:
       start_period: 30s
 
   import:
-    image: openstreetmap-tile-server-import:latest
+    image: ${IMPORT_IMAGE:-openstreetmap-tile-server-import:latest}
     build:
       context: ./docker/import
     environment:
@@ -44,7 +44,7 @@ services:
         condition: service_healthy
 
   renderd:
-    image: openstreetmap-tile-server-renderd:latest
+    image: ${RENDERD_IMAGE:-openstreetmap-tile-server-renderd:latest}
     build:
       context: ./docker/renderd
     environment:
@@ -61,7 +61,7 @@ services:
         condition: service_healthy
 
   web:
-    image: openstreetmap-tile-server-web:latest
+    image: ${WEB_IMAGE:-openstreetmap-tile-server-web:latest}
     build:
       context: ./docker/web
     ports:
@@ -75,7 +75,7 @@ services:
       - renderd
 
   updater:
-    image: openstreetmap-tile-server-updater:latest
+    image: ${UPDATER_IMAGE:-openstreetmap-tile-server-updater:latest}
     build:
       context: ./docker/updater
     environment:
@@ -83,7 +83,6 @@ services:
       PGUSER: _renderd
       PGPASSWORD: ${PGPASSWORD:-_renderd}
       THREADS: ${THREADS:-4}
-      UPDATES: ${UPDATES:-disabled}
       REPLICATION_URL: ${REPLICATION_URL:-https://planet.openstreetmap.org/replication/hour/}
       MAX_INTERVAL_SECONDS: ${MAX_INTERVAL_SECONDS:-3600}
       REPLICATION_TIMESTAMP: ${REPLICATION_TIMESTAMP:-}
