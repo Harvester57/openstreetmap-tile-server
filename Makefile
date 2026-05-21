@@ -1,18 +1,33 @@
-.PHONY: build push test
+.PHONY: build import start start-with-updates stop logs status clean
 
-DOCKER_IMAGE=ghcr.io/harvester57/openstreetmap-tile-server:master
-
+# Build all microservices targets concurrently
 build:
-	docker build -t ${DOCKER_IMAGE} .
+	docker compose build
 
-push: build
-	docker push ${DOCKER_IMAGE}:latest
+# Trigger the short-lived importer service to load map data (downloads Luxembourg by default)
+import:
+	docker compose run --rm import
 
-test: build
-	docker volume create osm-data
-	docker run --rm -v osm-data:/data/database/ ${DOCKER_IMAGE} import
-	docker run --rm -v osm-data:/data/database/ -p 8080:80 -d ${DOCKER_IMAGE} run
+# Start the serving infrastructure (web, renderd, db)
+start:
+	docker compose up -d web
 
+# Start the serving infrastructure with updates (web, renderd, db, updater)
+start-with-updates:
+	docker compose up -d web updater
+
+# View logs from all running microservices
+logs:
+	docker compose logs -f
+
+# View status of running services
+status:
+	docker compose ps
+
+# Stop all microservices
 stop:
-	docker rm -f `docker ps | grep '${DOCKER_IMAGE}' | awk '{ print $$1 }'` || true
-	docker volume rm -f osm-data
+	docker compose down
+
+# Clean up all containers, networks, and named volumes
+clean:
+	docker compose down -v
