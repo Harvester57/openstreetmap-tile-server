@@ -5,10 +5,18 @@ on:
     - master
     tags:
     - 'v[0-9]+.[0-9]+.[0-9]+'
+    paths-ignore:
+    - '**.md'
+    - 'LICENSE'
+    - '.vscode/**'
   pull_request:
     branches:
     - master
     - dev
+    paths-ignore:
+    - '**.md'
+    - 'LICENSE'
+    - '.vscode/**'
 
 # cancel outdated jobs for the same reference
 concurrency:
