@@ -13,6 +13,11 @@ updates:
   - "Harvester57"
   schedule:
     interval: daily
+  groups:
+    docker-dependencies:
+      applies-to: version-updates
+      patterns:
+      - "*"
 - package-ecosystem: "github-actions"
   directory: "/"
   commit-message:
