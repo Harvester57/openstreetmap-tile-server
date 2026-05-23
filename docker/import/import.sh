@@ -11,6 +11,17 @@ export PGUSER="${PGUSER:-postgres}"
 export PGPASSWORD="${PGPASSWORD:-_renderd}"
 export PGDB="${PGDB:-gis}"
 
+# Wait for the database to be healthy and fully accepting connections
+echo "INFO: Waiting for database to be ready and accepting connections..."
+for i in {1..30}; do
+    if pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB"; then
+        echo "INFO: Database is ready."
+        break
+    fi
+    echo "Database not ready yet, sleeping 2s..."
+    sleep 2
+done
+
 # 1. Initialize stylesheet in the shared volume if empty
 if [ ! "$(ls -A /data/style/)" ]; then
     echo "INFO: Shared style volume is empty. Copying default style backup..."

@@ -14,6 +14,17 @@ export PGPASSWORD="${PGPASSWORD:-_renderd}"
 export REPLICATION_URL="${REPLICATION_URL:-https://planet.openstreetmap.org/replication/hour/}"
 export MAX_INTERVAL_SECONDS="${MAX_INTERVAL_SECONDS:-3600}"
 
+# Wait for the database to be healthy and fully accepting connections
+echo "INFO: Waiting for database to be ready and accepting connections..."
+for i in {1..30}; do
+    if pg_isready -h "$PGHOST" -U "$PGUSER" -d gis; then
+        echo "INFO: Database is ready."
+        break
+    fi
+    echo "Database not ready yet, sleeping 2s..."
+    sleep 2
+done
+
 # Ensure correct log and database permissions
 mkdir -p /var/log/tiles /data/database
 chown -R _renderd: /var/log/tiles /data/database /var/cache/renderd/tiles
