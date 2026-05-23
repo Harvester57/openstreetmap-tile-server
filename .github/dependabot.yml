@@ -1,23 +1,28 @@
 version: 2
 updates:
-  - package-ecosystem: docker
-    directory: /
-    commit-message:
-      prefix: "docker"
-    assignees:
-    - "Harvester57"
-    schedule:
-      interval: daily
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    commit-message:
-      prefix: "actions"
-    assignees:
-    - "Harvester57"
-    schedule:
-      interval: weekly
-    groups:
-      actions-dependencies:
-        applies-to: version-updates
-        patterns:
-        - "*"
+- package-ecosystem: docker
+  directories:
+  - /docker/db
+  - /docker/import
+  - /docker/renderd
+  - /docker/updater
+  - /docker/web
+  commit-message:
+    prefix: "docker"
+  assignees:
+  - "Harvester57"
+  schedule:
+    interval: daily
+- package-ecosystem: "github-actions"
+  directory: "/"
+  commit-message:
+    prefix: "actions"
+  assignees:
+  - "Harvester57"
+  schedule:
+    interval: weekly
+  groups:
+    actions-dependencies:
+      applies-to: version-updates
+      patterns:
+      - "*"
