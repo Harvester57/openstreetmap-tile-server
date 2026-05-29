@@ -39,18 +39,15 @@ jobs:
     strategy:
       matrix:
         service: [import, renderd, web, updater, db]
-        arch: [amd64, arm64]
+        arch: [amd64]
         include:
         - arch: amd64
-          runner: ubuntu-24.04
-        - arch: arm64
-          runner: ubuntu-24.04-arm
-          variant: v8
+          runner: ubuntu-latest
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
     env:
-      PLATFORM: linux/${{ matrix.arch }}${{ (matrix.variant != '' && format('/{0}', matrix.variant)) || '' }}
+      PLATFORM: linux/${{ matrix.arch }}
     steps:
     - 
       name: Harden the runner (Audit all outbound calls)
@@ -91,7 +88,7 @@ jobs:
         retention-days: 1
 
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     needs: build
     permissions:
       contents: read
