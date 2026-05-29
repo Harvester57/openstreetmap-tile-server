@@ -38,7 +38,7 @@ jobs:
   build:
     strategy:
       matrix:
-        service: [import, renderd, web, updater]
+        service: [import, renderd, web, updater, db]
         arch: [amd64, arm64]
         include:
         - arch: amd64
@@ -185,7 +185,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' }}
     strategy:
       matrix:
-        service: [import, renderd, web, updater]
+        service: [import, renderd, web, updater, db]
     steps:
     - name: Harden the runner (Audit all outbound calls)
       uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
@@ -281,7 +281,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [import, renderd, web, updater]
+        service: [import, renderd, web, updater, db]
     steps:
       - 
         name: Harden the runner (Audit all outbound calls)
