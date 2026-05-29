@@ -118,7 +118,7 @@ jobs:
     -
       name: Load Images
       run: |
-        for image in import renderd web updater; do
+        for image in import renderd web updater db; do
           docker load --input /tmp/openstreetmap-tile-server-$image-amd64.tar
         done
 
