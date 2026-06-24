@@ -3,6 +3,7 @@ services:
     image: ${DB_IMAGE:-openstreetmap-tile-server-db:latest}
     build:
       context: ./docker/db
+    pull_policy: build
     environment:
       POSTGRES_DB: gis
       POSTGRES_USER: postgres
@@ -24,6 +25,7 @@ services:
     image: ${IMPORT_IMAGE:-openstreetmap-tile-server-import:latest}
     build:
       context: ./docker/import
+    pull_policy: build
     environment:
       PGHOST: db
       PGUSER: postgres
@@ -47,6 +49,7 @@ services:
     image: ${RENDERD_IMAGE:-openstreetmap-tile-server-renderd:latest}
     build:
       context: ./docker/renderd
+    pull_policy: build
     environment:
       PGHOST: db
       PGUSER: _renderd
@@ -64,6 +67,7 @@ services:
     image: ${WEB_IMAGE:-openstreetmap-tile-server-web:latest}
     build:
       context: ./docker/web
+    pull_policy: build
     ports:
       - "${PORT:-8080}:80"
     environment:
@@ -78,6 +82,7 @@ services:
     image: ${UPDATER_IMAGE:-openstreetmap-tile-server-updater:latest}
     build:
       context: ./docker/updater
+    pull_policy: build
     environment:
       PGHOST: db
       PGUSER: _renderd

@@ -15,15 +15,13 @@ RUN sed -i 's/^--\s*GRANT SELECT ON carto_pois TO <render user>;/GRANT SELECT ON
 FROM ubuntu:24.04@sha256:786a8b558f7be160c6c8c4a54f9a57274f3b4fb1491cf65146521ae77ff1dc54 AS base-db-client
 
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
-ENV PG_VERSION=18
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    ca-certificates gnupg lsb-release locales wget curl unzip bzip2 git-core postgresql-common gnupg2 sudo && \
+    ca-certificates locales wget curl unzip bzip2 git-core gnupg2 sudo && \
     locale-gen $LANG && update-locale LANG=$LANG && \
-    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v $PG_VERSION && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -42,7 +40,7 @@ RUN apt-get update && \
     osmosis \
     postgis \
     gdal-bin \
-    postgresql-client-$PG_VERSION \
+    postgresql-client \
     python-is-python3 \
     python3 \
     python3-requests \

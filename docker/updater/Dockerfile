@@ -14,7 +14,6 @@ RUN rm -rf .git && chmod u+x trim_osc.py
 FROM ubuntu:24.04@sha256:786a8b558f7be160c6c8c4a54f9a57274f3b4fb1491cf65146521ae77ff1dc54 AS base-db-client
 
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
-ENV PG_VERSION=18
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -23,15 +22,11 @@ RUN (groupadd -g 1001 _renderd 2>/dev/null || true) && \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    ca-certificates gnupg lsb-release locales wget curl unzip bzip2 postgresql-common gnupg2 sudo && \
-    locale-gen $LANG && update-locale LANG=$LANG && \
-    /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -i -v $PG_VERSION && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+    ca-certificates locales wget curl unzip bzip2 gnupg2 sudo \
     osmosis \
     osmium-tool \
     osm2pgsql \
-    postgresql-client-$PG_VERSION \
+    postgresql-client \
     python-is-python3 \
     python3-psycopg2 \
     python3-shapely \
@@ -39,6 +34,7 @@ RUN apt-get update && \
     dateutils \
     renderd \
     libapache2-mod-tile && \
+    locale-gen $LANG && update-locale LANG=$LANG && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
