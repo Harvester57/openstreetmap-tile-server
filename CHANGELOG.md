@@ -6,6 +6,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [3.0.1] - 2027-07-08
+
+This is a fork from the original repo for a fully offline usecase. The style is changed to a fork of the original openstreetmap-catro to disable international boundary and change all labels
+from local langauge to primarily English. This requires two volume mounts with offline data.
+
+* region.osm.pbf: Defined and used in the import service. This includes the osm.pbf file from geofabrik
+* map-data: Defined and used in httpd service. This includes the 4 shapefiles, 
+
+  * water-polygons-split-3857.zip,
+  * simplified-water-polygons-split-3857.zip,
+  * ne_110m_admin_0_boundary_lines_land.zip,
+  * antarctica-icesheet-polygons-3857.zip,
+  * antarctica-icesheet-outlines-3857.zip.
+
+No changes has been made to updater service, but I don't see any use for it in my offline usecase.
+
 ## [3.0.0] - 2026-05-23
 
 This is a major release representing a complete modernization and modularization of the OpenStreetMap Tile Server repository, moving from a monolithic single-container setup to a highly optimized, production-ready microservices architecture based on Docker Compose.

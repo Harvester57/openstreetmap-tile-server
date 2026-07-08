@@ -4,7 +4,7 @@
 FROM ubuntu:24.04@sha256:786a8b558f7be160c6c8c4a54f9a57274f3b4fb1491cf65146521ae77ff1dc54 AS compiler-stylesheet
 RUN apt-get update && apt-get install -y --no-install-recommends git-core ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /root
-RUN git clone --branch v6.0.0 https://github.com/openstreetmap-carto/openstreetmap-carto.git --depth 1
+RUN git clone --branch v6.0.1 https://github.com/mvineetmenon/openstreetmap-carto.git --depth 1
 WORKDIR /root/openstreetmap-carto
 RUN sed -i 's/^--\s*GRANT SELECT ON carto_pois TO <render user>;/GRANT SELECT ON carto_pois TO _renderd;/' common-values.sql && \
     rm -rf .git

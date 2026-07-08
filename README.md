@@ -1,6 +1,6 @@
-# High-Performance OpenStreetMap Tile Server
+# High-Performance Offline OpenStreetMap Tile Server
 
-A fully-featured, high-performance OpenStreetMap (OSM) PNG tile server package based on the **Ubuntu 24.04 LTS manual tile server guide** from [switch2osm.org](https://switch2osm.org/). 
+A fully offline and fully-featured, high-performance OpenStreetMap (OSM) PNG tile server package based on the **Ubuntu 24.04 LTS manual tile server guide** from [switch2osm.org](https://switch2osm.org/). 
 
 This project implements a decoupled, modern **microservices architecture** managed via **Docker Compose**, separating concerns into independent, highly optimized containerized services for database persistence, high-speed importing, tile rendering, web serving, and background updates.
 
@@ -20,12 +20,50 @@ The application is split into five distinct microservices, designed to work toge
     ├── import/              # One-time data import environment using osm2pgsql
     ├── renderd/             # Daemon rendering map tiles via Mapnik 3.0
     ├── web/                 # Apache2 web server with mod_tile & Leaflet demo
+    ├── httpd/               # Apache2 web server with for locally hosting some shape files required for rendering ocean and polar caps at level 0
     └── updater/             # Background Osmosis replication update service
+```
+---
+
+The directory structure for the current docker-compose configuration is,
+
+```
+.
+├── map-data
+│   ├── antarctica-icesheet-outlines-3857.zip
+│   ├── antarctica-icesheet-polygons-3857.zip
+│   ├── ne_110m_admin_0_boundary_lines_land.zip
+│   ├── simplified-water-polygons-split-3857.zip
+│   └── water-polygons-split-3857.zip
+├── openstreetmap-tile-server
+│   ├── AGENT.md
+│   ├── CHANGELOG.md
+│   ├── docker
+│   │   ├── db
+│   │   ├── httpd
+│   │   ├── import
+│   │   ├── renderd
+│   │   ├── ubuntu.sources
+│   │   ├── updater
+│   │   └── web
+│   ├── docker-compose.yml
+│   ├── LICENSE
+│   ├── Makefile
+│   ├── opensteetmap-tile-server.service
+│   └── README.md
+└─── osmrawfiles
+    ├── india-latest.osm.pbf
 ```
 
 ### The Services
 *   **`db`**: Custom PostgreSQL 18 database with PostGIS 3.6. Specifically pre-configured and performance-tuned for geospatial database operations (optimized WAL, disabled JIT, increased shared buffers).
 *   **`import`**: A short-lived, one-time execution container containing `osm2pgsql` (with modern **flex output** support), `osmosis`, and `osmium-tool` for downloading and importing OSM PBF and polygon files.
+*   **`httpd`**: A short-lived, service used for serving shape files describing oceans, continents and polar ice caps at level 0. It's only used when import is being run. It should contain, 
+    - [`water-polygons-split-3857.zip`](https://osmdata.openstreetmap.de/download/water-polygons-split-3857.zip), 
+    - [`simplified-water-polygons-split-3857.zip`](https://osmdata.openstreetmap.de/download/simplified-water-polygons-split-3857.zip), 
+    - [`ne_110m_admin_0_boundary_lines_land.zip`](https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_boundary_lines_land.zip), 
+    - [`antarctica-icesheet-polygons-3857.zip`](https://osmdata.openstreetmap.de/download/antarctica-icesheet-polygons-3857.zip), 
+    - [`antarctica-icesheet-outlines-3857.zip`](https://osmdata.openstreetmap.de/download/antarctica-icesheet-outlines-3857.zip).
 *   **`renderd`**: The rendering service running `renderd` and Mapnik 3.0. It compiles CartoCSS stylesheet styles dynamically and renders PNG tiles on-demand over a shared Unix socket.
 *   **`web`**: Front-facing Apache2 web server compiled with the `mod_tile` module. Serves pre-rendered tiles directly from cache or routes tile-rendering requests to the render daemon. Features a built-in Leaflet v1.9.4 interactive map.
 *   **`updater`**: A long-running background replication updater. It polls global or regional replication feeds using `osmosis` and trims changesets using `trim_osc.py` for regional synchronization.

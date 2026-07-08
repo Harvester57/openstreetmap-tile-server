@@ -3,7 +3,6 @@ services:
     image: ${DB_IMAGE:-openstreetmap-tile-server-db:latest}
     build:
       context: ./docker/db
-    pull_policy: build
     environment:
       POSTGRES_DB: gis
       POSTGRES_USER: postgres
@@ -25,7 +24,6 @@ services:
     image: ${IMPORT_IMAGE:-openstreetmap-tile-server-import:latest}
     build:
       context: ./docker/import
-    pull_policy: build
     environment:
       PGHOST: db
       PGUSER: postgres
@@ -40,16 +38,26 @@ services:
       - osm-style:/data/style
       - osm-import-data:/data/database
       # Optional: To use a local OSM PBF file from your host, uncomment the line below:
-      # - ./region.osm.pbf:/data/region.osm.pbf
+      - ./region.osm.pbf:/data/region.osm.pbf
     depends_on:
       db:
         condition: service_healthy
+      httpd:
+        condition: service_started
+
+  httpd:
+    image: ${HTTPD_IMAGE:-openstreetmap-tile-server-httpd:latest}
+    build:
+      context: ./docker/httpd
+    ports:
+      - "80:80"
+    volumes:
+      - ../map-data/:/var/www/html/
 
   renderd:
     image: ${RENDERD_IMAGE:-openstreetmap-tile-server-renderd:latest}
     build:
       context: ./docker/renderd
-    pull_policy: build
     environment:
       PGHOST: db
       PGUSER: _renderd
@@ -65,9 +73,9 @@ services:
 
   web:
     image: ${WEB_IMAGE:-openstreetmap-tile-server-web:latest}
+    restart: unless-stopped
     build:
       context: ./docker/web
-    pull_policy: build
     ports:
       - "${PORT:-8080}:80"
     environment:
@@ -82,7 +90,6 @@ services:
     image: ${UPDATER_IMAGE:-openstreetmap-tile-server-updater:latest}
     build:
       context: ./docker/updater
-    pull_policy: build
     environment:
       PGHOST: db
       PGUSER: _renderd
