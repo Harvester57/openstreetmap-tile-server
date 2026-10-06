@@ -306,7 +306,7 @@ jobs:
           docker tag openstreetmap-tile-server-${{ matrix.service }}:latest localbuild/testimage-${{ matrix.service }}:latest
       -
         name: Generate SBOM and upload dependency results
-        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: localbuild/testimage-${{ matrix.service }}:latest
           artifact-name: "${{ github.event.repository.name }}-${{ matrix.service }}.cyclonedx-sbom.json"
