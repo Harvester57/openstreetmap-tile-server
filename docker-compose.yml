@@ -38,8 +38,9 @@ services:
     volumes:
       - osm-style:/data/style
       - osm-import-data:/data/database
-      # Optional: To use a local OSM PBF file from your host, uncomment the line below:
+      # Optional: To use a local OSM PBF (and polygon) file from your host, uncomment the line(s) below:
       # - ./region.osm.pbf:/data/region.osm.pbf
+      # - ./region.poly:/data/region.poly
     depends_on:
       db:
         condition: service_healthy
