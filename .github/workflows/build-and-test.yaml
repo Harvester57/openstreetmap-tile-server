@@ -277,7 +277,7 @@ jobs:
     needs: deploy
     permissions:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
-      contents: write # for sbom-action artifact uploads
+      contents: read
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -308,13 +308,13 @@ jobs:
           docker load --input /tmp/openstreetmap-tile-server-${{ matrix.service }}-amd64.tar
           docker tag openstreetmap-tile-server-${{ matrix.service }}:latest localbuild/testimage-${{ matrix.service }}:latest
       -
-        name: Generate SBOM and upload dependency results
+        name: Generate SBOM
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: localbuild/testimage-${{ matrix.service }}:latest
           artifact-name: "${{ github.event.repository.name }}-${{ matrix.service }}.cyclonedx-sbom.json"
           output-file: "/tmp/${{ github.event.repository.name }}-${{ matrix.service }}.cyclonedx-sbom.json"
-          dependency-snapshot: true
+          dependency-snapshot: false
           format: cyclonedx-json
           upload-artifact: true
       -
