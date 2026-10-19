@@ -1,5 +1,14 @@
 FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
 
+LABEL org.opencontainers.image.title="openstreetmap-tile-server-web" \
+    org.opencontainers.image.description="Apache2 + mod_tile front-end web server microservice for OpenStreetMap PNG tile server." \
+    org.opencontainers.image.url="https://github.com/Harvester57/openstreetmap-tile-server" \
+    org.opencontainers.image.source="https://github.com/Harvester57/openstreetmap-tile-server" \
+    org.opencontainers.image.documentation="https://github.com/Harvester57/openstreetmap-tile-server/blob/master/README.md" \
+    org.opencontainers.image.licenses="Apache-2.0" \
+    org.opencontainers.image.authors="Alexander Overvoorde (original image), Florian Stosse (fork)" \
+    org.opencontainers.image.base.name="docker.io/library/ubuntu:24.04"
+
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -9,8 +18,8 @@ RUN (groupadd -g 1001 _renderd 2>/dev/null || true) && \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    ca-certificates locales wget unzip \
-    apache2 renderd && \
+    ca-certificates locales wget curl unzip \
+    apache2 libapache2-mod-tile && \
     locale-gen $LANG && update-locale LANG=$LANG && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -23,6 +32,8 @@ RUN echo "LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so" >> /etc/a
 
 COPY apache.conf /etc/apache2/sites-available/000-default.conf
 COPY renderd.conf /etc/renderd.conf
+RUN sed -i 's/\r$//' /etc/apache2/sites-available/000-default.conf /etc/renderd.conf
+
 
 RUN ln -sf /dev/stdout /var/log/apache2/access.log && \
     ln -sf /dev/stderr /var/log/apache2/error.log

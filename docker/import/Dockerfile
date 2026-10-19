@@ -35,11 +35,19 @@ RUN (groupadd -g 1001 _renderd 2>/dev/null || true) && \
 # ==============================================================================
 FROM base-db-client
 
+LABEL org.opencontainers.image.title="openstreetmap-tile-server-import" \
+    org.opencontainers.image.description="OSM data importer microservice (osm2pgsql flex, osmium-tool, carto) for OpenStreetMap PNG tile server." \
+    org.opencontainers.image.url="https://github.com/Harvester57/openstreetmap-tile-server" \
+    org.opencontainers.image.source="https://github.com/Harvester57/openstreetmap-tile-server" \
+    org.opencontainers.image.documentation="https://github.com/Harvester57/openstreetmap-tile-server/blob/master/README.md" \
+    org.opencontainers.image.licenses="Apache-2.0" \
+    org.opencontainers.image.authors="Alexander Overvoorde (original image), Florian Stosse (fork)" \
+    org.opencontainers.image.base.name="docker.io/library/ubuntu:24.04"
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     osm2pgsql \
     osmium-tool \
-    osmosis \
     postgis \
     gdal-bin \
     postgresql-client-$PG_VERSION \
@@ -48,19 +56,12 @@ RUN apt-get update && \
     python3-requests \
     python3-yaml \
     python3-psycopg2 \
-    node-carto \
-    libapache2-mod-tile \
-    liblua5.3-dev \
-    lua5.3 && \
+    node-carto && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 COPY import.sh /import.sh
 RUN sed -i 's/\r$//' /import.sh && chmod +x /import.sh
-
-RUN mkdir -p /var/log/tiles && \
-    chmod a+rw /var/log/tiles && \
-    ln -sf /usr/share/doc/libapache2-mod-tile/examples/osmosis-db_replag /usr/bin/osmosis-db_replag
 
 COPY --from=compiler-stylesheet /root/openstreetmap-carto /home/_renderd/src/openstreetmap-carto-backup
 
@@ -68,3 +69,4 @@ RUN mkdir -p /data/database/ /data/style/ && \
     chown -R _renderd: /data/
 
 ENTRYPOINT ["/import.sh"]
+

@@ -124,13 +124,18 @@ jobs:
 
     -
       name: Import Luxembourg
-      run : docker compose run --rm import
+      run : docker compose --env-file .env.local run --rm import
 
     -
       name: Start server
       run : |
-        docker compose up -d web updater
-        docker compose logs
+        docker compose --env-file .env.local up -d web updater
+        docker compose --env-file .env.local logs
+        if [ "$(docker compose --env-file .env.local ps -q updater | xargs docker inspect -f '{{.State.Running}}')" != "true" ]; then
+          >&2 echo "ERROR: updater container is not running"
+          docker compose --env-file .env.local logs updater
+          exit 1
+        fi
     -
       name: Download tiles
       run : |
@@ -165,8 +170,8 @@ jobs:
       name: Cleanup
       if: always()
       run : |
-        docker compose down -v
-        docker rmi --force openstreetmap-tile-server-import:latest openstreetmap-tile-server-renderd:latest openstreetmap-tile-server-web:latest openstreetmap-tile-server-updater:latest
+        docker compose --env-file .env.local down -v
+        docker rmi --force openstreetmap-tile-server-import:latest openstreetmap-tile-server-renderd:latest openstreetmap-tile-server-web:latest openstreetmap-tile-server-updater:latest openstreetmap-tile-server-db:latest
 
   deploy:
     runs-on: ubuntu-latest
@@ -206,7 +211,7 @@ jobs:
       name: Set up Docker Buildx
       uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       with:
-        platforms: linux/amd64,linux/arm64/v8
+        platforms: linux/amd64
 
     -
       name: Login to GHCR
@@ -241,10 +246,8 @@ jobs:
         file       : ./docker/${{ matrix.service }}/Dockerfile
         tags       : ${{ steps.meta.outputs.tags }}
         labels     : ${{ steps.meta.outputs.labels }}
-        cache-from: |
-          type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-linux/amd64
-          type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-linux/arm64/v8
-        cache-to: type=gha,mode=max
+        cache-from : type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-linux/amd64
+        cache-to   : type=gha,scope=${{ github.workflow }}:${{ matrix.service }}-linux/amd64,mode=max
 
     # Sign the resulting Docker image digest except on PRs.
     # This will only write to the public Rekor transparency log when the Docker
@@ -326,6 +329,7 @@ jobs:
           only-fixed: true
       -
         name: Upload Anchore scan SARIF report
-        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v3.29.5
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
+

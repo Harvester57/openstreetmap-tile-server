@@ -13,10 +13,13 @@ export ALLOW_CORS="${ALLOW_CORS:-enabled}"
 # 1. Clean up potential stale Apache lock/PID files (important when containers restart)
 rm -f /var/run/apache2/apache2.pid
 
-# 2. Configure CORS in Apache environment variables
+# 2. Configure CORS in Apache environment variables (idempotent across container restarts)
 if [ "$ALLOW_CORS" == "enabled" ] || [ "$ALLOW_CORS" == "1" ]; then
-    echo "export APACHE_ARGUMENTS='-D ALLOW_CORS'" >> /etc/apache2/envvars
+    if ! grep -q "APACHE_ARGUMENTS='-D ALLOW_CORS'" /etc/apache2/envvars; then
+        echo "export APACHE_ARGUMENTS='-D ALLOW_CORS'" >> /etc/apache2/envvars
+    fi
 fi
+
 
 # 3. Ensure both renderd (under _renderd user) and Apache (under www-data user)
 # can read/write to the shared socket and tile directories

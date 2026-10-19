@@ -16,38 +16,27 @@ export MAX_INTERVAL_SECONDS="${MAX_INTERVAL_SECONDS:-3600}"
 
 # Wait for the database to be healthy and fully accepting connections
 echo "INFO: Waiting for database to be ready and accepting connections..."
+DB_READY=0
 for i in {1..30}; do
     if pg_isready -h "$PGHOST" -U "$PGUSER" -d gis; then
         echo "INFO: Database is ready."
+        DB_READY=1
         break
     fi
     echo "Database not ready yet, sleeping 2s..."
     sleep 2
 done
 
+if [ "$DB_READY" -ne 1 ]; then
+    echo "ERROR: Database did not become ready within 60 seconds." >&2
+    exit 1
+fi
+
 # Ensure correct log and database permissions
 mkdir -p /var/log/tiles /data/database
 chown -R _renderd: /var/log/tiles /data/database /var/cache/renderd/tiles
 chmod -R 775 /var/cache/renderd/tiles/
 find /var/cache/renderd/tiles/ -type d -exec chmod g+s {} +
-
-# Automatically initialize osmosis workspace if not present
-if [ ! -f /data/database/.osmosis/state.txt ]; then
-    echo "INFO: Osmosis workspace not found at /data/database/.osmosis/state.txt. Initializing..."
-    INITIAL_TIMESTAMP="${REPLICATION_TIMESTAMP:-}"
-    if [ -z "$INITIAL_TIMESTAMP" ]; then
-        # Default to 1 day ago in ISO format
-        INITIAL_TIMESTAMP=$(date -u -d "1 day ago" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
-        echo "INFO: No REPLICATION_TIMESTAMP provided. Defaulting to 1 day ago: $INITIAL_TIMESTAMP"
-    else
-        echo "INFO: Initializing osmosis workspace with provided timestamp: $INITIAL_TIMESTAMP"
-    fi
-    
-    # Run the initialization as renderd user
-    sudo -E -u _renderd openstreetmap-tiles-update-expire.sh "$INITIAL_TIMESTAMP"
-fi
-
-echo "INFO: Starting updates daemon..."
 
 # Start tailing the logs to stdout so they are visible in docker logs
 touch /var/log/tiles/run.log \
@@ -62,6 +51,29 @@ tail -f /var/log/tiles/osmosis.log >> /dev/stdout &
 tail -f /var/log/tiles/expiry.log >> /dev/stdout &
 tail -f /var/log/tiles/osm2pgsql.log >> /dev/stdout &
 
+# Automatically initialize osmosis workspace if not present
+if [ ! -f /data/database/.osmosis/state.txt ]; then
+    echo "INFO: Osmosis workspace not found at /data/database/.osmosis/state.txt. Initializing..."
+    INITIAL_TIMESTAMP="${REPLICATION_TIMESTAMP:-}"
+    if [ -z "$INITIAL_TIMESTAMP" ] && [ -s /data/database/replication_timestamp.txt ]; then
+        INITIAL_TIMESTAMP="$(cat /data/database/replication_timestamp.txt)"
+        echo "INFO: Using PBF replication timestamp from import: $INITIAL_TIMESTAMP"
+    elif [ -z "$INITIAL_TIMESTAMP" ]; then
+        # Default to 1 day ago in ISO format
+        INITIAL_TIMESTAMP=$(date -u -d "1 day ago" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
+        echo "INFO: No REPLICATION_TIMESTAMP provided. Defaulting to 1 day ago: $INITIAL_TIMESTAMP"
+    else
+        echo "INFO: Initializing osmosis workspace with provided timestamp: $INITIAL_TIMESTAMP"
+    fi
+    
+    # Run the initialization as renderd user
+    sudo -E -u _renderd openstreetmap-tiles-update-expire.sh "$INITIAL_TIMESTAMP"
+fi
+
+echo "INFO: Starting updates daemon..."
+
+trap 'echo "INFO: Stopping updater daemon..."; exit 0' SIGTERM SIGINT
+
 # Run replication updater loop in the foreground
 while true; do
     echo "INFO: Triggering replication update checks..."
@@ -71,5 +83,7 @@ while true; do
     else
         echo "WARNING: Update check returned non-zero code. Possibly no new replication state, will retry."
     fi
-    sleep "$MAX_INTERVAL_SECONDS"
+    sleep "$MAX_INTERVAL_SECONDS" &
+    wait $!
 done
+

@@ -3,6 +3,7 @@ services:
     image: ${DB_IMAGE:-openstreetmap-tile-server-db:latest}
     build:
       context: ./docker/db
+    shm_size: ${SHM_SIZE:-1gb}
     environment:
       POSTGRES_DB: gis
       POSTGRES_USER: postgres
@@ -10,9 +11,6 @@ services:
       AUTOVACUUM: ${AUTOVACUUM:-on}
     volumes:
       - osm-db-data:/var/lib/postgresql
-      - ./docker/db/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-      - ./docker/db/10-optimize-db.sh:/docker-entrypoint-initdb.d/10-optimize-db.sh:ro
-      - ./docker/db/postgresql.custom.conf.tmpl:/etc/postgresql/postgresql.custom.conf.tmpl:ro
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d gis" ]
       interval: 10s
@@ -26,7 +24,7 @@ services:
       context: ./docker/import
     environment:
       PGHOST: db
-      PGUSER: postgres
+      PGUSER: _renderd
       PGPASSWORD: ${PGPASSWORD:-_renderd}
       DOWNLOAD_PBF: ${DOWNLOAD_PBF:-}
       DOWNLOAD_POLY: ${DOWNLOAD_POLY:-}
@@ -34,6 +32,9 @@ services:
       FLAT_NODES: ${FLAT_NODES:-disabled}
       OSM2PGSQL_EXTRA_ARGS: ${OSM2PGSQL_EXTRA_ARGS:-}
       WGET_ARGS: ${WGET_ARGS:-}
+      NAME_LUA: ${NAME_LUA:-openstreetmap-carto-flex.lua}
+      NAME_MML: ${NAME_MML:-project.mml}
+      NAME_SQL: ${NAME_SQL:-indexes.sql}
     volumes:
       - osm-style:/data/style
       - osm-import-data:/data/database
@@ -52,6 +53,7 @@ services:
       PGUSER: _renderd
       PGPASSWORD: ${PGPASSWORD:-_renderd}
       THREADS: ${THREADS:-4}
+      NAME_MML: ${NAME_MML:-project.mml}
     volumes:
       - osm-style:/data/style
       - osm-tiles:/var/cache/renderd/tiles
@@ -59,6 +61,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "test -S /run/renderd/renderd.sock" ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
 
   web:
     image: ${WEB_IMAGE:-openstreetmap-tile-server-web:latest}
@@ -72,7 +80,14 @@ services:
       - osm-tiles:/var/cache/renderd/tiles
       - renderd-socket:/run/renderd
     depends_on:
-      - renderd
+      renderd:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl --fail -s http://localhost/ > /dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
 
   updater:
     image: ${UPDATER_IMAGE:-openstreetmap-tile-server-updater:latest}
@@ -83,6 +98,8 @@ services:
       PGUSER: _renderd
       PGPASSWORD: ${PGPASSWORD:-_renderd}
       THREADS: ${THREADS:-4}
+      NAME_LUA: ${NAME_LUA:-openstreetmap-carto-flex.lua}
+      OSM2PGSQL_EXTRA_ARGS: ${OSM2PGSQL_EXTRA_ARGS:-}
       REPLICATION_URL: ${REPLICATION_URL:-https://planet.openstreetmap.org/replication/hour/}
       MAX_INTERVAL_SECONDS: ${MAX_INTERVAL_SECONDS:-3600}
       REPLICATION_TIMESTAMP: ${REPLICATION_TIMESTAMP:-}
@@ -99,7 +116,7 @@ services:
       db:
         condition: service_healthy
       renderd:
-        condition: service_started
+        condition: service_healthy
 
 # Named volumes for sharing data between microservices
 volumes:
@@ -117,3 +134,4 @@ volumes:
 
   # Shared Unix socket directory for mod_tile/renderd communication
   renderd-socket:
+

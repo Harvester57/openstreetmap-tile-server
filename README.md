@@ -54,7 +54,7 @@ This repository is a modernized, production-ready fork optimized for speed, reli
 *   **Automatic Appending Imports**: The importer automatically detects whether the `gis` database has already been initialized. If found, it skips setup and runs `osm2pgsql` in `--append` mode instead of `--create`, enabling incremental data ingestion.
 *   **Standardized Security & Permissions**: Restores strict standard security by mapping Apache, the renderer daemon, database connections, and cron updates to a non-privileged `_renderd` system user.
 *   **Postgres Performance Tuning**: Reconfigured database settings (disabling `JIT` to eliminate query plan compilation overhead, raising `shared_buffers` to 2GB, tuning checkpoints, and setting a robust 10GB WAL).
-*   **Optimized GitHub Actions CI**: Complete migration to GitHub Actions supporting automated multi-architecture (`amd64` / `arm64`) builds, image provenance attestation (Sigstore Cosign), and Software Bill of Materials (SBOM) generation.
+*   **Optimized GitHub Actions CI**: Complete migration to GitHub Actions supporting automated `linux/amd64` builds, image provenance attestation (Sigstore Cosign), and Software Bill of Materials (SBOM) generation.
 
 ---
 
@@ -276,6 +276,7 @@ Configure these settings inside a `.env` or `.env.local` file in the repository 
 | `OSM2PGSQL_EXTRA_ARGS` | `-C 2500` | `import` | Extra arguments forwarded to `osm2pgsql` (e.g., `-C 8192` to raise memory cache). |
 | `PGPASSWORD` | `_renderd` | *All Services* | Database password for the internal system rendering user. |
 | `AUTOVACUUM` | `on` | `db` | Toggles the PostgreSQL autovacuum daemon (`on` or `off`). |
+| `SHM_SIZE` | `1gb` | `db` | Shared memory (`/dev/shm`) allocated to the PostgreSQL database container. |
 | `DOWNLOAD_PBF` | *(none)* | `import` | Remote URL to fetch the `.osm.pbf` file from if not mounting a local file. |
 | `DOWNLOAD_POLY` | *(none)* | `import` | Remote URL to download the region boundary `.poly` file. |
 | `WGET_ARGS` | *(none)* | `import` | Custom arguments supplied to `wget` when downloading map resources. |
@@ -291,7 +292,7 @@ Configure these settings inside a `.env` or `.env.local` file in the repository 
 ## Performance Tuning & Tweaking
 
 ### Shared Memory Allocations
-Because PostgreSQL runs in a dedicated service, you no longer need to pass `--shm-size` flags at container execution. Custom shared memory and WAL buffers are automatically optimized inside the performance template `postgresql.custom.conf.tmpl` and managed natively by Docker Compose.
+The `db` service in `docker-compose.yml` automatically configures `shm_size` (defaulting to `1gb` via `SHM_SIZE`), alongside custom shared buffers (`shared_buffers = 2GB`) and WAL buffers inside `postgresql.custom.conf.tmpl`. You can raise `SHM_SIZE` in `.env` or `.env.local` for large workloads.
 
 ### Large Database Cache Tuning
 When importing datasets larger than 10GB, increase the `osm2pgsql` RAM cache. Set `OSM2PGSQL_EXTRA_ARGS` to assign ~75% of your available memory:

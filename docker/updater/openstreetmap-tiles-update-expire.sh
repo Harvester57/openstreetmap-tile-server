@@ -31,7 +31,7 @@ fi
 # This area will usually correspond to the data originally loaded.
 #------------------------------------------------------------------------------
 TRIM_POLY_FILE="/data/database/region.poly"
-TRIM_OPTIONS="-d $DBNAME --host ${PGHOST:-db} --user ${PGUSER:-_renderd} --password"
+TRIM_OPTIONS="-d $DBNAME --host ${PGHOST:-db} --user ${PGUSER:-_renderd}"
 TRIM_REGION_OPTIONS="-p $TRIM_POLY_FILE"
 
 BASE_DIR=/data/database
@@ -111,10 +111,18 @@ if [ $# -eq 1 ] ; then
     mkdir -p $WORKOSM_DIR
     $OSMOSIS_BIN -v 5 --read-replication-interval-init workingDirectory=$WORKOSM_DIR 1>&2 2> "$OSMOSISLOG"
 
-    init_seq=$(/usr/lib/python3-pyosmium/pyosmium-get-changes --server $REPLICATION_URL -D $1)
+    PYOSMIUM_GET_CHANGES=$(command -v pyosmium-get-changes || echo "/usr/lib/python3-pyosmium/pyosmium-get-changes")
+    init_seq=$($PYOSMIUM_GET_CHANGES --server "$REPLICATION_URL" -D "$1")
     url_dynamicPart=$(printf %09d $init_seq | sed 's_\([0-9][0-9][0-9]\)\([0-9][0-9][0-9]\)\([0-9][0-9][0-9]\)_\1/\2/\3_')
-    wget $REPLICATION_URL/$url_dynamicPart.state.txt -O $WORKOSM_DIR/state.txt
+    wget "${REPLICATION_URL%/}/$url_dynamicPart.state.txt" -O $WORKOSM_DIR/state.txt
+
+    cat > $WORKOSM_DIR/configuration.txt <<- EOM
+baseUrl=$REPLICATION_URL
+maxInterval=${MAX_INTERVAL_SECONDS:-3600}
+EOM
+    exit 0
 fi
+
 
 # make sure the lockfile is removed when we exit and then claim it
 if ! getlock "$LOCK_FILE"; then

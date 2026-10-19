@@ -7,7 +7,7 @@ This repository builds a suite of Docker images for an OpenStreetMap PNG tile se
 ## Key Components & Technologies
 - **OS**: Ubuntu 24.04 LTS (Docker base for all services except `db`)
 - **Database (`db`)**: Running PostgreSQL 18 + PostGIS 3.6. Custom performance-tuned and optimized for geospatial workload (JIT disabled, increased shared buffers).
-- **Importer (`import`)**: Short-lived service containing `osm2pgsql` (with modern **flex output** support), `osmosis`, and `osmium-tool` for importing OSM PBF files.
+- **Importer (`import`)**: Short-lived service containing `osm2pgsql` (with modern **flex output** support), `osmium-tool`, and `node-carto` for importing OSM PBF files and compiling stylesheets.
 - **Rendering (`renderd`)**: Multi-threaded PNG rendering daemon running Mapnik 3.0 + `renderd`. Uses the **openstreetmap-carto v6.0.0** stylesheet compiled dynamically.
 - **Server (`web`)**: Front-facing Apache2 web server with `mod_tile` communicating with the renderer over a shared Unix socket (`/run/renderd/renderd.sock`).
 - **Updates (`updater`)**: Running background replication updates with `osmosis` and `regional/trim_osc.py` for regional synchronization.
@@ -21,30 +21,30 @@ This repository builds a suite of Docker images for an OpenStreetMap PNG tile se
   - `db/`: Custom PostGIS PostgreSQL 18 database files.
     - `Dockerfile`: Extends the official `postgis/postgis:18-3.6` base.
     - `init-db.sql`: Database schema initialization (creation of `gis` database, extensions, roles).
-    - `10-optimize-db.sh`: Applies optimized configurations at database initialization.
+    - `10-optimize-db.sh`: Applies optimized configurations and syncs `_renderd` password at database initialization.
     - `postgresql.custom.conf.tmpl`: Custom performance-tuning template applied at startup.
   - `import/`: One-time data import environment.
-    - `Dockerfile`: Sets up PostgreSQL client and import tools. Clones default stylesheet.
-    - `import.sh`: Script downloading OSM PBF data and executing `osm2pgsql` in `--create` or `--append` mode.
+    - `Dockerfile`: Sets up PostgreSQL client, `osm2pgsql`, `osmium-tool`, and `node-carto`. Clones default stylesheet.
+    - `import.sh`: Compiles `mapnik.xml`, downloads OSM PBF data, extracts PBF replication timestamp, and executes `osm2pgsql` as `_renderd` in `--create` or `--append` mode.
   - `renderd/`: Daemon image rendering map tiles.
-    - `Dockerfile`: Ubuntu 24.04 base installing renderd, Mapnik, and font dependencies.
-    - `renderd-entrypoint.sh`: Compiles Cartesian CSS styling to mapnik XML and runs `renderd`.
+    - `Dockerfile`: Ubuntu 24.04 base installing renderd, Mapnik, `node-carto`, and font dependencies.
+    - `renderd-entrypoint.sh`: Ensures `/data/style/mapnik.xml` is compiled and runs `renderd` as `_renderd`.
     - `renderd.conf`: Renderer configuration pointing to `/run/renderd/renderd.sock` and XML style sheet.
   - `web/`: Front-facing web server.
     - `Dockerfile`: Installs Apache2 with `mod_tile` module and pre-installs a Leaflet-based demo map.
     - `apache.conf`: Routes `/tile/` requests to renderd Unix socket and loads `mod_headers` and `mod_tile`.
     - `web-entrypoint.sh`: Sets up permissions and runs Apache in the foreground.
   - `updater/`: background diff updating service.
-    - `Dockerfile`: Clones regional trimming tools (`regional/trim_osc.py`) and installs `osmosis`/`osm2pgsql`.
+    - `Dockerfile`: Clones regional trimming tools (`regional/trim_osc.py`) and installs `osmosis`/`osm2pgsql`/`pyosmium`.
     - `updater-entrypoint.sh`: Replication update loops fetching regional differential updates.
-    - `openstreetmap-tiles-update-expire.sh`: Legacy cron-style script driving diff updates and tile expiry.
+    - `openstreetmap-tiles-update-expire.sh`: Script driving diff updates and tile expiry.
 
 ---
 
 ## Key Commands for Agent Workflows
 
 ### 1. Build and Run the Stack locally
-Using the project `Makefile`, you can orchestrate the entire pipeline:
+Using the project `Makefile` (which defaults to `ENV_FILE=.env.local` so local builds use local image tags rather than GHCR tags in `.env`):
 ```bash
 # Build all microservices targets concurrently
 make build
@@ -94,7 +94,9 @@ make clean
 - `THREADS=4`: Parallel workers for database importing and map tile rendering (passed to `import`, `renderd`, and `updater`).
 - `ALLOW_CORS=enabled`: If set, adds `Access-Control-Allow-Origin: *` to tile responses (configured in `web` environment).
 - `FLAT_NODES=disabled`: Uses a flat node file structure (set to `enabled` for full-planet imports; passed to `import`).
-- `OSM2PGSQL_EXTRA_ARGS="-C 2500"`: Tailors cache allocation to system memory limits (passed to `import`).
+- `OSM2PGSQL_EXTRA_ARGS="-C 2500"`: Tailors cache allocation to system memory limits (passed to `import` and `updater`).
+- `SHM_SIZE=1gb`: Shared memory (`/dev/shm`) allocation for the `db` container.
 - `DOWNLOAD_PBF`: URL to download an OSM `.pbf` dataset during import if not mounted locally.
-- `PGPASSWORD=_renderd`: PostgreSQL password for the `_renderd` user.
+- `PGPASSWORD=_renderd`: PostgreSQL password synchronized across `postgres` and `_renderd` users.
+
 

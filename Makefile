@@ -1,33 +1,37 @@
 .PHONY: build import start start-with-updates stop logs status clean
 
+ENV_FILE ?= .env.local
+COMPOSE = docker compose --env-file $(ENV_FILE)
+
 # Build all microservices targets concurrently
 build:
-	docker compose build
+	$(COMPOSE) build
 
 # Trigger the short-lived importer service to load map data (downloads Luxembourg by default)
 import:
-	docker compose run --rm import
+	$(COMPOSE) run --rm import
 
 # Start the serving infrastructure (web, renderd, db)
 start:
-	docker compose up -d web
+	$(COMPOSE) up -d web
 
 # Start the serving infrastructure with updates (web, renderd, db, updater)
 start-with-updates:
-	docker compose up -d web updater
+	$(COMPOSE) up -d web updater
 
 # View logs from all running microservices
 logs:
-	docker compose logs -f
+	$(COMPOSE) logs -f
 
 # View status of running services
 status:
-	docker compose ps
+	$(COMPOSE) ps
 
 # Stop all microservices
 stop:
-	docker compose down
+	$(COMPOSE) down
 
 # Clean up all containers, networks, and named volumes
 clean:
-	docker compose down -v
+	$(COMPOSE) down -v
+

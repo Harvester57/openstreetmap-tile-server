@@ -30,6 +30,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     osmosis \
     osmium-tool \
+    pyosmium \
     osm2pgsql \
     postgresql-client-$PG_VERSION \
     python-is-python3 \
@@ -47,6 +48,15 @@ RUN apt-get update && \
 # ==============================================================================
 FROM base-db-client
 
+LABEL org.opencontainers.image.title="openstreetmap-tile-server-updater" \
+    org.opencontainers.image.description="Osmosis replication updater and tile expiry microservice for OpenStreetMap PNG tile server." \
+    org.opencontainers.image.url="https://github.com/Harvester57/openstreetmap-tile-server" \
+    org.opencontainers.image.source="https://github.com/Harvester57/openstreetmap-tile-server" \
+    org.opencontainers.image.documentation="https://github.com/Harvester57/openstreetmap-tile-server/blob/master/README.md" \
+    org.opencontainers.image.licenses="Apache-2.0" \
+    org.opencontainers.image.authors="Alexander Overvoorde (original image), Florian Stosse (fork)" \
+    org.opencontainers.image.base.name="docker.io/library/ubuntu:24.04"
+
 COPY openstreetmap-tiles-update-expire.sh /usr/bin/
 RUN sed -i 's/\r$//' /usr/bin/openstreetmap-tiles-update-expire.sh && \
     chmod +x /usr/bin/openstreetmap-tiles-update-expire.sh && \
@@ -61,3 +71,4 @@ COPY updater-entrypoint.sh /updater-entrypoint.sh
 RUN sed -i 's/\r$//' /updater-entrypoint.sh && chmod +x /updater-entrypoint.sh
 
 ENTRYPOINT ["/updater-entrypoint.sh"]
+
