@@ -1,7 +1,7 @@
 # ==============================================================================
 # Helper Stage: Regional trim script Clone & Pruning
 # ==============================================================================
-FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS compiler-helper-script
+FROM ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac AS compiler-helper-script
 RUN apt-get update && apt-get install -y --no-install-recommends git-core ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /home/_renderd/src
 RUN git clone https://github.com/zverik/regional --depth 1
@@ -11,7 +11,7 @@ RUN rm -rf .git && chmod u+x trim_osc.py
 # ==============================================================================
 # Helper Stage: PostgreSQL DB Client Base
 # ==============================================================================
-FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS base-db-client
+FROM ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac AS base-db-client
 
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
 ENV PG_VERSION=18
