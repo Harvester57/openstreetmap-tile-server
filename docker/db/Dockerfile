@@ -1,4 +1,4 @@
-FROM postgis/postgis:18-3.6@sha256:60f6ad1d21ea86a67d47780b9a0d1e1d200500f62b19293fa834d0dea80b8677
+FROM postgis/postgis:18-3.6@sha256:4a43e3c3e5d55b9208240fc71db543b79c638766280c625a425bd0a2390989c4
 
 LABEL org.opencontainers.image.title="openstreetmap-tile-server-db" \
     org.opencontainers.image.description="PostgreSQL 18 + PostGIS 3.6 database microservice for OpenStreetMap PNG tile server." \
