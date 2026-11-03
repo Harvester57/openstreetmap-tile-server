@@ -1,7 +1,7 @@
 # ==============================================================================
 # Helper Stage: Stylesheet Clone & Pruning
 # ==============================================================================
-FROM ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac AS compiler-stylesheet
+FROM ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852 AS compiler-stylesheet
 RUN apt-get update && apt-get install -y --no-install-recommends git-core ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /root
 RUN git clone --branch v6.1.0 https://github.com/openstreetmap-carto/openstreetmap-carto.git --depth 1
@@ -12,7 +12,7 @@ RUN sed -i 's/^--\s*GRANT SELECT ON carto_pois TO <render user>;/GRANT SELECT ON
 # ==============================================================================
 # Helper Stage: PostgreSQL DB Client Base
 # ==============================================================================
-FROM ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac AS base-db-client
+FROM ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852 AS base-db-client
 
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
 ENV PG_VERSION=18
